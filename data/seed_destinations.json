@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Bali",
+    "country": "Indonesia",
+    "category": "beach",
+    "climate": "tropical",
+    "avg_budget_usd": 1500,
+    "activities": ["snorkeling", "surfing", "temple visits", "hiking", "yoga"],
+    "description": "A beautiful island known for beaches, temples, and rice terraces."
+  },
+  {
+    "name": "Paris",
+    "country": "France",
+    "category": "city",
+    "climate": "temperate",
+    "avg_budget_usd": 4000,
+    "activities": ["museums", "food tours", "architecture", "shopping", "river cruise"],
+    "description": "The city of light, famous for art, fashion, and cuisine."
+  },
+  {
+    "name": "Tokyo",
+    "country": "Japan",
+    "category": "city",
+    "climate": "temperate",
+    "avg_budget_usd": 3500,
+    "activities": ["food tours", "temples", "shopping", "anime", "hiking"],
+    "description": "A vibrant metropolis blending tradition and modernity."
+  },
+  {
+    "name": "Maldives",
+    "country": "Maldives",
+    "category": "beach",
+    "climate": "tropical",
+    "avg_budget_usd": 5000,
+    "activities": ["snorkeling", "diving", "relaxing", "water sports"],
+    "description": "Luxury overwater bungalows surrounded by crystal clear waters."
+  },
+  {
+    "name": "Patagonia",
+    "country": "Argentina",
+    "category": "nature",
+    "climate": "cold",
+    "avg_budget_usd": 2500,
+    "activities": ["hiking", "glacier tours", "wildlife watching", "camping"],
+    "description": "Dramatic landscapes of mountains, glaciers, and wilderness."
+  }
+]

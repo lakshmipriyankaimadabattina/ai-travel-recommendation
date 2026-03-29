@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html><head>
+  <title>AI Travel Planner</title>
+  <style>
+    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
+    input { width: 70%; padding: 10px; font-size: 16px; }
+    button { padding: 10px 20px; background: #5b8cff; color: white; border: none; cursor: pointer; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  </style>
+</head><body>
+  <h1>✈️ AI Travel Planner</h1>
+  <input id="query" placeholder="e.g. I want a warm beach trip under $2000" />
+  <button onclick="search()">Search</button>
+  <div id="results"></div>
+
+  <script>
+    async function search() {
+      const query = document.getElementById('query').value;
+      const res = await fetch('/api/query', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ text: query })
+      });
+      const parsed = await res.json();
+
+      const recRes = await fetch('/api/recommend/alice?top_k=5');
+      const recs = await recRes.json();
+
+      let html = '<h3>Top Recommendations</h3>';
+      for (const dest of recs.recommendations || []) {
+        html += `<div class="card">
+          <h3>${dest.name}, ${dest.country}</h3>
+          <p>${dest.description}</p>
+          <p>Budget: $${dest.avg_budget_usd} | Score: ${dest.score}</p>
+        </div>`;
+      }
+      document.getElementById('results').innerHTML = html;
+    }
+  </script>
+</body></html>

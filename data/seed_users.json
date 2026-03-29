@@ -1,0 +1,24 @@
+[
+  {
+    "username": "alice",
+    "preferences": {
+      "categories": ["beach", "nature"],
+      "climates": ["tropical", "warm"],
+      "max_budget_usd": 3000,
+      "preferred_activities": ["snorkeling", "hiking", "surfing"]
+    },
+    "interaction_history": [],
+    "visited": []
+  },
+  {
+    "username": "bob",
+    "preferences": {
+      "categories": ["city", "culture"],
+      "climates": ["temperate", "cool"],
+      "max_budget_usd": 5000,
+      "preferred_activities": ["museums", "food tours", "architecture"]
+    },
+    "interaction_history": [],
+    "visited": []
+  }
+]
