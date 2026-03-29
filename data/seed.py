@@ -3,7 +3,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 async def seed():
     print("Starting seed script...")
-    client = AsyncIOMotorClient("mongodb://localhost:27017")
+    client = AsyncIOMotorClient("mongodb+srv://ilpriyanka153_db_user:Shalu2063@cluster0.wugvfuk.mongodb.net/?appName=Cluster0")
     db = client["travel_db"]
     print("Connected to MongoDB!")
 
