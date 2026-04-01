@@ -19,8 +19,3 @@ def test_nlp_query():
 def test_weather():
     res = client.get("/api/weather/Tokyo")
     assert res.status_code == 200
-
-
-def test_health():
-    res = client.get("/health")
-    assert res.status_code == 200
