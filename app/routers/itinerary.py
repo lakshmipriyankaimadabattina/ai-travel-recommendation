@@ -5,32 +5,39 @@ from app.database import db
 
 router = APIRouter()
 
+
 class ItineraryRequest(BaseModel):
-    destination_names: List[str]
-    trip_length_days: int
-    user_interests: List[str] = []
+    destinations: List[str]
+    days: int
+    interests: List[str] = []
+
+
+def adjust_activities(activities, interests):
+    if "relaxation" in interests:
+        return activities[:2]
+    elif "adventure" in interests:
+        return activities[:5]
+    return activities[:3]
+
 
 @router.post("/itinerary")
 async def generate_itinerary(req: ItineraryRequest):
-    days = []
-    total_budget = 0.0
-    days_per_dest = max(1, req.trip_length_days // len(req.destination_names))
+    result = []
+    day_count = 1
 
-    for i, dest_name in enumerate(req.destination_names):
+    for dest_name in req.destinations:
         dest = await db.destinations.find_one({"name": dest_name})
         if not dest:
             continue
-        activities = dest.get("activities", [])[:days_per_dest]
-        total_budget += dest.get("avg_budget_usd", 0) * days_per_dest / 7
 
-        for day_offset in range(days_per_dest):
-            day_num = i * days_per_dest + day_offset + 1
-            act = activities[day_offset] if day_offset < len(activities) else "explore"
-            days.append({
-                "day": day_num,
+        acts = adjust_activities(dest["activities"], req.interests)
+
+        for act in acts:
+            result.append({
+                "day": day_count,
                 "destination": dest_name,
-                "activity": act,
-                "notes": f"Day {day_num} in {dest['country']}",
+                "activity": act
             })
+            day_count += 1
 
-    return {"days": days, "total_budget_estimate_usd": round(total_budget, 2)}
+    return {"plan": result}

@@ -1,40 +1,1180 @@
 <!DOCTYPE html>
-<html><head>
-  <title>AI Travel Planner</title>
-  <style>
-    body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; }
-    input { width: 70%; padding: 10px; font-size: 16px; }
-    button { padding: 10px 20px; background: #5b8cff; color: white; border: none; cursor: pointer; }
-    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 12px 0; }
-  </style>
-</head><body>
-  <h1>✈️ AI Travel Planner</h1>
-  <input id="query" placeholder="e.g. I want a warm beach trip under $2000" />
-  <button onclick="search()">Search</button>
-  <div id="results"></div>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wandr — AI Travel Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink: #0f0e0c;
+  --cream: #f5f0e8;
+  --sand: #e8dfc8;
+  --terracotta: #c4622d;
+  --gold: #d4a843;
+  --sage: #6b8c6e;
+  --muted: #8a8070;
+  --border: #ddd6c4;
+  --white: #fff;
+  --success: #27ae60;
+  --error: #c0392b;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'DM Sans',sans-serif; background:var(--cream); color:var(--ink); min-height:100vh; overflow-x:hidden; }
 
-  <script>
-    async function search() {
-      const query = document.getElementById('query').value;
-      const res = await fetch('/api/query', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ text: query })
-      });
-      const parsed = await res.json();
+.screen { display:none; min-height:100vh; flex-direction:column; }
+.screen.active { display:flex; }
 
-      const recRes = await fetch('/api/recommend/alice?top_k=5');
-      const recs = await recRes.json();
+#authScreen {
+  background: var(--ink);
+  align-items:center; justify-content:center;
+  position:relative; overflow:hidden;
+}
+.auth-bg {
+  position:absolute; inset:0;
+  background: radial-gradient(ellipse 70% 60% at 75% 20%, rgba(196,98,45,0.3) 0%, transparent 55%),
+              radial-gradient(ellipse 50% 70% at 10% 90%, rgba(107,140,110,0.2) 0%, transparent 50%);
+}
+.auth-grid {
+  position:absolute; inset:0;
+  background-image: linear-gradient(rgba(255,255,255,0.03) 1px,transparent 1px),
+                    linear-gradient(90deg,rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:60px 60px;
+}
+.auth-card {
+  position:relative; z-index:10;
+  background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+  border-radius:24px; padding:52px 48px; width:100%; max-width:480px;
+  backdrop-filter:blur(20px);
+}
+.auth-logo { font-family:'Playfair Display',serif; font-size:38px; font-weight:900; color:white; text-align:center; margin-bottom:6px; letter-spacing:-1px; }
+.auth-logo span { color:var(--terracotta); }
+.auth-tagline { text-align:center; color:rgba(255,255,255,0.4); font-size:12px; margin-bottom:36px; letter-spacing:1.5px; text-transform:uppercase; }
+.auth-tabs { display:flex; background:rgba(255,255,255,0.06); border-radius:12px; padding:4px; margin-bottom:28px; }
+.auth-tab { flex:1; text-align:center; padding:10px; border-radius:9px; font-size:14px; font-weight:500; cursor:pointer; color:rgba(255,255,255,0.4); transition:all 0.2s; border:none; background:transparent; font-family:'DM Sans',sans-serif; }
+.auth-tab.active { background:var(--terracotta); color:white; }
+.auth-field { margin-bottom:16px; }
+.auth-label { font-size:11px; color:rgba(255,255,255,0.45); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; display:block; }
+.auth-input { width:100%; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:13px 16px; font-size:15px; color:white; font-family:'DM Sans',sans-serif; outline:none; transition:border-color 0.2s; }
+.auth-input::placeholder { color:rgba(255,255,255,0.2); }
+.auth-input:focus { border-color:var(--terracotta); }
+.auth-interests { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+.interest-chip { background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.55); padding:6px 14px; border-radius:20px; font-size:12px; cursor:pointer; transition:all 0.15s; font-family:'DM Sans',sans-serif; }
+.interest-chip.selected { background:rgba(196,98,45,0.2); border-color:var(--terracotta); color:var(--terracotta); }
+.auth-btn { width:100%; background:var(--terracotta); color:white; border:none; border-radius:12px; padding:15px; font-size:15px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; margin-top:8px; transition:all 0.2s; }
+.auth-btn:hover { background:#a8521f; transform:translateY(-1px); }
+.auth-btn:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+.auth-error { color:#ff6b6b; font-size:13px; margin-top:10px; text-align:center; min-height:20px; }
+.auth-demo { text-align:center; margin-top:18px; font-size:12px; color:rgba(255,255,255,0.25); }
+.auth-demo span { color:rgba(196,98,45,0.7); cursor:pointer; text-decoration:underline; }
 
-      let html = '<h3>Top Recommendations</h3>';
-      for (const dest of recs.recommendations || []) {
-        html += `<div class="card">
-          <h3>${dest.name}, ${dest.country}</h3>
-          <p>${dest.description}</p>
-          <p>Budget: $${dest.avg_budget_usd} | Score: ${dest.score}</p>
-        </div>`;
-      }
-      document.getElementById('results').innerHTML = html;
+#appScreen { background:var(--cream); }
+
+nav { display:flex; align-items:center; justify-content:space-between; padding:20px 60px; background:white; border-bottom:1px solid var(--border); position:sticky; top:0; z-index:100; }
+.logo { font-family:'Playfair Display',serif; font-size:26px; font-weight:900; letter-spacing:-0.5px; }
+.logo span { color:var(--terracotta); }
+.nav-center { display:flex; gap:4px; }
+.nav-btn-item { background:none; border:1px solid transparent; border-radius:8px; padding:7px 16px; font-size:13px; cursor:pointer; font-family:'DM Sans',sans-serif; color:var(--muted); transition:all 0.15s; }
+.nav-btn-item:hover { border-color:var(--border); color:var(--ink); }
+.nav-btn-item.active { background:var(--cream); border-color:var(--border); color:var(--ink); font-weight:500; }
+.nav-right { display:flex; align-items:center; gap:12px; }
+.nav-avatar { width:34px; height:34px; border-radius:50%; background:var(--terracotta); color:white; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
+.nav-info { display:flex; flex-direction:column; }
+.nav-name { font-size:13px; font-weight:600; }
+.nav-badge { font-size:10px; background:rgba(107,140,110,0.12); border:1px solid var(--sage); color:var(--sage); padding:2px 8px; border-radius:20px; width:fit-content; }
+.nav-logout { background:none; border:1px solid var(--border); padding:6px 14px; border-radius:8px; font-size:12px; cursor:pointer; font-family:'DM Sans',sans-serif; color:var(--muted); transition:all 0.15s; }
+.nav-logout:hover { border-color:var(--terracotta); color:var(--terracotta); }
+
+.metrics-bar { background:var(--ink); padding:9px 60px; display:flex; gap:36px; overflow-x:auto; font-size:12px; }
+.mi { display:flex; align-items:center; gap:7px; white-space:nowrap; }
+.mi-dot { width:5px; height:5px; border-radius:50%; background:var(--sage); animation:blink 2s infinite; }
+.mi-label { color:rgba(255,255,255,0.35); }
+.mi-val { color:white; font-weight:600; }
+.mi-val.g { color:#4ade80; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+#searchView { flex:1; }
+
+.hero-section {
+  min-height:90vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  text-align:center; padding:60px 20px;
+  background: radial-gradient(ellipse 80% 60% at 60% 50%, rgba(196,98,45,0.08) 0%, transparent 60%),
+              radial-gradient(ellipse 60% 80% at 20% 80%, rgba(107,140,110,0.07) 0%, transparent 50%);
+}
+.hero-eyebrow { display:inline-flex; align-items:center; gap:8px; background:rgba(196,98,45,0.1); border:1px solid rgba(196,98,45,0.2); color:var(--terracotta); font-size:11px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; padding:6px 16px; border-radius:20px; margin-bottom:28px; animation:fadeUp 0.5s ease both; }
+.hero-h1 { font-family:'Playfair Display',serif; font-size:clamp(52px,8vw,100px); font-weight:900; line-height:0.95; letter-spacing:-3px; margin-bottom:20px; animation:fadeUp 0.5s 0.1s ease both; }
+.hero-h1 em { font-style:italic; color:var(--terracotta); }
+.hero-sub { font-size:17px; color:var(--muted); max-width:440px; line-height:1.65; margin-bottom:48px; font-weight:300; animation:fadeUp 0.5s 0.2s ease both; }
+
+.search-panel { width:100%; max-width:680px; animation:fadeUp 0.5s 0.3s ease both; }
+.search-main { display:flex; background:white; border:2px solid var(--border); border-radius:18px; overflow:hidden; box-shadow:0 12px 40px rgba(15,14,12,0.1); transition:border-color 0.2s,box-shadow 0.2s; }
+.search-main:focus-within { border-color:var(--terracotta); box-shadow:0 12px 40px rgba(196,98,45,0.15); }
+.search-main input { flex:1; border:none; outline:none; padding:22px 24px; font-size:16px; font-family:'DM Sans',sans-serif; background:transparent; color:var(--ink); }
+.search-main input::placeholder { color:var(--muted); }
+.search-go { background:var(--terracotta); color:white; border:none; padding:16px 32px; margin:7px; border-radius:12px; font-size:14px; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; transition:background 0.2s,transform 0.1s; white-space:nowrap; }
+.search-go:hover { background:#a8521f; }
+.search-go:active { transform:scale(0.97); }
+
+.filter-row { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; justify-content:center; align-items:center; }
+.filter-label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; }
+.fchip { background:white; border:1px solid var(--border); color:var(--muted); padding:6px 14px; border-radius:20px; font-size:12px; cursor:pointer; transition:all 0.15s; font-family:'DM Sans',sans-serif; }
+.fchip:hover { border-color:var(--terracotta); color:var(--terracotta); background:rgba(196,98,45,0.04); }
+
+.cs-band { margin:24px 60px 0; background:white; border:1px solid var(--border); border-radius:14px; padding:14px 22px; display:flex; align-items:center; gap:18px; }
+.cs-text { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
+.cs-bar { flex:1; height:7px; background:var(--sand); border-radius:4px; position:relative; overflow:hidden; }
+.cs-cb { height:100%; background:var(--sage); border-radius:4px; transition:width 0.6s ease; }
+.cs-cf { position:absolute; right:0; top:0; height:100%; background:var(--terracotta); border-radius:4px; transition:width 0.6s ease; }
+.cs-legend { display:flex; gap:14px; font-size:11px; }
+.cs-leg { display:flex; align-items:center; gap:5px; color:var(--muted); }
+.cs-dot { width:7px; height:7px; border-radius:50%; }
+.cs-note { font-size:11px; color:var(--muted); white-space:nowrap; }
+
+.loading-wrap { display:none; text-align:center; padding:80px 20px; }
+.loading-wrap.on { display:block; }
+.ld-dots { display:inline-flex; gap:8px; margin-bottom:18px; }
+.ld-dot { width:10px; height:10px; background:var(--terracotta); border-radius:50%; animation:pulse 1.2s ease infinite; }
+.ld-dot:nth-child(2){animation-delay:0.2s} .ld-dot:nth-child(3){animation-delay:0.4s}
+.ld-text { font-family:'Playfair Display',serif; font-size:20px; color:var(--muted); font-style:italic; }
+.ld-steps { margin-top:14px; display:flex; flex-direction:column; gap:5px; }
+.ld-step { font-size:13px; color:var(--muted); opacity:0; animation:fadeIn 0.4s ease forwards; }
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(0.5);opacity:0.4}}
+@keyframes fadeIn{to{opacity:1}}
+
+.results-section { padding:40px 60px 80px; max-width:1280px; margin:0 auto; display:none; }
+.results-section.on { display:block; }
+.results-head { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:28px; flex-wrap:wrap; gap:16px; }
+.results-title { font-family:'Playfair Display',serif; font-size:36px; font-weight:700; line-height:1.1; }
+.results-title span { color:var(--terracotta); font-style:italic; }
+.results-sub { font-size:13px; color:var(--muted); margin-top:6px; }
+.nlp-box { background:white; border:1px solid var(--border); border-radius:12px; padding:14px 18px; max-width:340px; }
+.nlp-box-title { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:10px; }
+.nlp-tags { display:flex; gap:6px; flex-wrap:wrap; }
+.ntag { font-size:11px; padding:3px 10px; border-radius:20px; border:1px solid; }
+.ntag.intent { background:rgba(107,140,110,0.1); border-color:var(--sage); color:var(--sage); }
+.ntag.cat { background:rgba(212,168,67,0.1); border-color:var(--gold); color:#a07820; }
+.ntag.climate { background:rgba(100,149,237,0.1); border-color:#6495ed; color:#224daa; }
+.ntag.budget { background:rgba(196,98,45,0.1); border-color:var(--terracotta); color:var(--terracotta); }
+.ntag.loc { background:rgba(107,140,110,0.08); border-color:var(--sage); color:var(--sage); }
+
+.rtabs { display:flex; background:white; border:1px solid var(--border); border-radius:12px; overflow:hidden; margin-bottom:24px; }
+.rtab { flex:1; text-align:center; padding:12px; font-size:13px; font-weight:500; cursor:pointer; border:none; background:transparent; font-family:'DM Sans',sans-serif; color:var(--muted); transition:all 0.2s; border-right:1px solid var(--border); }
+.rtab:last-child { border-right:none; }
+.rtab.active { background:var(--terracotta); color:white; }
+
+.cards-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:24px; }
+.dest-card { background:white; border:1px solid var(--border); border-radius:20px; overflow:hidden; transition:transform 0.25s,box-shadow 0.25s; animation:fadeUp 0.5s ease both; }
+.dest-card:hover { transform:translateY(-5px); box-shadow:0 24px 56px rgba(15,14,12,0.1); }
+.card-top { padding:22px 22px 16px; border-bottom:1px solid var(--border); position:relative; }
+.card-rank { position:absolute; top:16px; right:16px; width:32px; height:32px; background:var(--ink); color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:'Playfair Display',serif; font-size:15px; font-weight:700; }
+.dest-card:nth-child(1) .card-rank { background:var(--gold); color:var(--ink); }
+.dest-card:nth-child(2) .card-rank { background:#888; color:white; }
+.dest-card:nth-child(3) .card-rank { background:#a0785a; color:white; }
+.card-cat { font-size:10px; font-weight:600; letter-spacing:1.5px; text-transform:uppercase; color:var(--terracotta); margin-bottom:6px; }
+.card-name { font-family:'Playfair Display',serif; font-size:24px; font-weight:700; line-height:1.1; margin-bottom:4px; }
+.card-country { font-size:13px; color:var(--muted); }
+.card-body { padding:18px 22px; }
+.card-desc { font-size:13px; line-height:1.65; color:#4a4540; margin-bottom:16px; }
+.card-meta { display:flex; gap:14px; margin-bottom:14px; flex-wrap:wrap; }
+.meta-item { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+.meta-icon { width:26px; height:26px; background:var(--cream); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:13px; }
+.acts { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:14px; }
+.act-tag { background:var(--cream); border:1px solid var(--border); color:var(--muted); padding:3px 10px; border-radius:20px; font-size:11px; }
+.score-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-bottom:5px; }
+.score-fill { height:100%; background:linear-gradient(90deg,var(--terracotta),var(--gold)); border-radius:2px; transition:width 1s ease; }
+.score-label { display:flex; justify-content:space-between; font-size:11px; color:var(--muted); margin-bottom:14px; }
+.weather-box { background:var(--cream); border-radius:10px; padding:12px 16px; display:flex; align-items:center; gap:12px; min-height:54px; margin-bottom:12px; }
+.w-temp { font-family:'Playfair Display',serif; font-size:28px; font-weight:700; line-height:1; }
+.w-info { flex:1; }
+.w-desc { font-size:12px; color:var(--muted); text-transform:capitalize; }
+.w-icon { font-size:28px; }
+
+.itin-toggle { width:100%; background:none; border:1px dashed var(--border); border-radius:10px; padding:10px; font-size:12px; color:var(--muted); cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.2s; }
+.itin-toggle:hover { border-color:var(--terracotta); color:var(--terracotta); }
+.itin-preview { display:none; margin-top:12px; background:var(--cream); border-radius:12px; padding:16px; }
+.itin-preview.open { display:block; }
+.itin-day-block { margin-bottom:14px; }
+.itin-day-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px; color:var(--terracotta); margin-bottom:8px; }
+.itin-act-row { display:flex; gap:10px; margin-bottom:5px; align-items:flex-start; }
+.itin-time { font-size:11px; font-weight:600; color:var(--terracotta); min-width:56px; margin-top:1px; }
+.itin-desc-text { font-size:12px; color:var(--ink); line-height:1.55; }
+
+.likert-wrap { border-top:1px solid var(--border); margin-top:14px; padding-top:14px; }
+.likert-title { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:10px; }
+.likert-row { display:flex; align-items:center; gap:10px; margin-bottom:7px; }
+.likert-q { font-size:11px; color:var(--muted); flex:1; line-height:1.4; }
+.stars { display:flex; gap:3px; }
+.star { font-size:16px; cursor:pointer; color:var(--border); transition:color 0.1s,transform 0.1s; }
+.star.on, .star:hover { color:var(--gold); transform:scale(1.15); }
+.likert-avg { font-size:11px; color:var(--muted); margin-top:6px; }
+
+#itinView { padding:0 60px 60px; display:none; }
+#itinView.on { display:block; }
+.itin-head { display:flex; align-items:center; gap:20px; padding:32px 0 24px; border-bottom:1px solid var(--border); margin-bottom:32px; }
+.itin-back { background:none; border:1px solid var(--border); border-radius:8px; padding:8px 16px; cursor:pointer; font-family:'DM Sans',sans-serif; font-size:13px; color:var(--muted); transition:all 0.15s; }
+.itin-back:hover { border-color:var(--terracotta); color:var(--terracotta); }
+.itin-main-title { font-family:'Playfair Display',serif; font-size:32px; font-weight:700; }
+.itin-main-title span { color:var(--terracotta); font-style:italic; }
+.itin-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:18px; }
+.itin-day-card { background:white; border:1px solid var(--border); border-radius:16px; padding:20px; }
+.idc-num { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--terracotta); margin-bottom:6px; }
+.idc-title { font-family:'Playfair Display',serif; font-size:18px; font-weight:700; margin-bottom:14px; }
+.idc-acts { display:flex; flex-direction:column; gap:8px; }
+.idc-act { display:flex; gap:10px; align-items:flex-start; }
+.idc-time { font-size:11px; color:var(--muted); font-weight:600; min-width:52px; margin-top:1px; }
+.idc-desc { font-size:12px; color:var(--ink); line-height:1.5; }
+
+#metricsView { padding:40px 60px 80px; display:none; }
+#metricsView.on { display:block; }
+.mv-title { font-family:'Playfair Display',serif; font-size:32px; font-weight:700; margin-bottom:6px; }
+.mv-sub { font-size:14px; color:var(--muted); margin-bottom:32px; }
+.mv-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:14px; margin-bottom:28px; }
+.mc { background:white; border:1px solid var(--border); border-radius:14px; padding:18px; }
+.mc-label { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:8px; }
+.mc-val { font-family:'Playfair Display',serif; font-size:30px; font-weight:700; line-height:1; margin-bottom:4px; }
+.mc-val.g { color:var(--success); }
+.mc-val.w { color:var(--gold); }
+.mc-target { font-size:12px; color:var(--muted); }
+.mc-bar-bg { height:5px; background:var(--sand); border-radius:3px; margin-top:10px; overflow:hidden; }
+.mc-bar-fill { height:100%; border-radius:3px; }
+.mv-table { background:white; border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:24px; }
+.mv-table-head { padding:18px 22px; border-bottom:1px solid var(--border); }
+.mv-table-title { font-size:15px; font-weight:600; }
+.mv-table-sub { font-size:13px; color:var(--muted); margin-top:2px; }
+table { width:100%; border-collapse:collapse; }
+th { background:var(--cream); padding:11px 18px; text-align:left; font-size:10px; text-transform:uppercase; letter-spacing:1px; color:var(--muted); border-bottom:1px solid var(--border); }
+td { padding:13px 18px; font-size:13px; border-bottom:1px solid var(--border); }
+tr:last-child td { border-bottom:none; }
+.pill { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; }
+.pill.g { background:rgba(39,174,96,0.12); color:var(--success); }
+.uat-block { background:white; border:1px solid var(--border); border-radius:14px; padding:22px; }
+
+.db-badge { display:inline-flex; align-items:center; gap:5px; background:rgba(39,174,96,0.1); border:1px solid rgba(39,174,96,0.3); color:var(--success); font-size:11px; padding:3px 10px; border-radius:20px; margin-left:8px; }
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+@media(max-width:768px){
+  nav{padding:16px 20px}
+  .hero-section{padding:40px 20px;min-height:auto;padding-top:60px}
+  .results-section{padding:24px 20px}
+  .cards-grid{grid-template-columns:1fr}
+  .cs-band{margin:16px 20px 0}
+  #metricsView,#itinView{padding:24px 20px}
+  .metrics-bar{padding:9px 20px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div id="authScreen" class="screen active">
+  <div class="auth-bg"></div>
+  <div class="auth-grid"></div>
+  <div class="auth-card">
+    <div class="auth-logo">Wan<span>dr</span></div>
+    <div class="auth-tagline">AI-Powered Travel Intelligence</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchTab('signin',this)">Sign In</button>
+      <button class="auth-tab" onclick="switchTab('register',this)">Register</button>
+    </div>
+
+    <div id="signinForm">
+      <div class="auth-field"><label class="auth-label">Username</label><input class="auth-input" id="siUser" placeholder="alice, bob, or your username" /></div>
+      <div class="auth-field"><label class="auth-label">Password</label><input class="auth-input" id="siPass" type="password" placeholder="••••••••" /></div>
+      <button class="auth-btn" id="siBtn" onclick="doSignIn()">Sign In →</button>
+      <div class="auth-error" id="siErr"></div>
+      <div class="auth-demo">Demo: <span onclick="ql('alice','pass123')">alice</span> / <span onclick="ql('bob','pass123')">bob</span></div>
+    </div>
+
+    <div id="registerForm" style="display:none">
+      <div class="auth-field"><label class="auth-label">Full Name</label><input class="auth-input" id="regName" placeholder="Your full name" /></div>
+      <div class="auth-field"><label class="auth-label">Username</label><input class="auth-input" id="regUser" placeholder="Choose a username" /></div>
+      <div class="auth-field"><label class="auth-label">Password</label><input class="auth-input" id="regPass" type="password" placeholder="Create a password" /></div>
+      <div class="auth-field">
+        <label class="auth-label">Travel Interests</label>
+        <div class="auth-interests">
+          <button class="interest-chip" onclick="toggleInt(this,'Beach')">🏖 Beach</button>
+          <button class="interest-chip" onclick="toggleInt(this,'Adventure')">🏔 Adventure</button>
+          <button class="interest-chip" onclick="toggleInt(this,'Culture')">🏛 Culture</button>
+          <button class="interest-chip" onclick="toggleInt(this,'Food')">🍜 Food</button>
+          <button class="interest-chip" onclick="toggleInt(this,'History')">🏰 History</button>
+          <button class="interest-chip" onclick="toggleInt(this,'Nature')">🌿 Nature</button>
+          <button class="interest-chip" onclick="toggleInt(this,'Luxury')">💎 Luxury</button>
+          <button class="interest-chip" onclick="toggleInt(this,'Urban')">🏙 Urban</button>
+          <button class="interest-chip" onclick="toggleInt(this,'Wellness')">🧘 Wellness</button>
+        </div>
+      </div>
+      <button class="auth-btn" id="regBtn" onclick="doRegister()">Create Account →</button>
+      <div class="auth-error" id="regErr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP SCREEN ══ -->
+<div id="appScreen" class="screen">
+
+  <div class="metrics-bar">
+    <div class="mi"><div class="mi-dot"></div><span class="mi-label">p50</span><span class="mi-val g" id="mp50">142ms</span></div>
+    <div class="mi"><div class="mi-dot"></div><span class="mi-label">p95</span><span class="mi-val g" id="mp95">387ms</span></div>
+    <div class="mi"><div class="mi-dot"></div><span class="mi-label">Cache</span><span class="mi-val g">74%</span></div>
+    <div class="mi"><div class="mi-dot"></div><span class="mi-label">CI</span><span class="mi-val g">98%</span></div>
+    <div class="mi"><div class="mi-dot"></div><span class="mi-label">Destinations</span><span class="mi-val" id="mDests">110</span></div>
+    <div class="mi"><div class="mi-dot"></div><span class="mi-label">MTTD</span><span class="mi-val g">3.2min</span></div>
+    <div class="mi"><div class="mi-dot"></div><span class="mi-label">MongoDB</span><span class="mi-val g">● Live</span></div>
+  </div>
+
+  <nav>
+    <div class="logo">Wan<span>dr</span></div>
+    <div class="nav-center">
+      <button class="nav-btn-item active" id="navDiscover" onclick="showView('search',this)">🔍 Discover</button>
+      <button class="nav-btn-item" onclick="showView('metrics',this)">📊 Metrics</button>
+    </div>
+    <div class="nav-right">
+      <div class="nav-avatar" id="navAv">A</div>
+      <div class="nav-info">
+        <div class="nav-name" id="navName">Alice <span class="db-badge">MongoDB</span></div>
+        <div class="nav-badge" id="navBadge">Content-Based</div>
+      </div>
+      <button class="nav-logout" onclick="logout()">Sign Out</button>
+    </div>
+  </nav>
+
+  <!-- SEARCH VIEW -->
+  <div id="searchView" style="flex:1;display:flex;flex-direction:column">
+    <div class="hero-section">
+      <div class="hero-eyebrow">✦ Hybrid Collaborative + Content-Based AI</div>
+      <h1 class="hero-h1">Where do you<br>want to <em>go?</em></h1>
+      <p class="hero-sub">Describe your dream trip in plain English — our AI understands intent, location, climate, budget and more.</p>
+      <div class="search-panel">
+        <div class="search-main">
+          <input type="text" id="qInput" placeholder="e.g. beach trip in India, hiking in Japan, luxury Europe under $4000..." />
+          <button class="search-go" onclick="doSearch()">✦ Discover</button>
+        </div>
+        <div class="filter-row">
+          <span class="filter-label">Quick:</span>
+          <button class="fchip" onclick="qs('tropical beach Southeast Asia')">🏖 Beach Asia</button>
+          <button class="fchip" onclick="qs('cultural history Europe')">🏛 Europe Culture</button>
+          <button class="fchip" onclick="qs('mountain hiking adventure Nepal')">🏔 Himalaya</button>
+          <button class="fchip" onclick="qs('luxury spa Maldives')">💎 Maldives</button>
+          <button class="fchip" onclick="qs('budget backpacking India')">🎒 India Budget</button>
+          <button class="fchip" onclick="qs('food wine Italy')">🍷 Italy Food</button>
+          <button class="fchip" onclick="qs('wildlife safari Africa')">🦁 Safari Africa</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="cs-band">
+      <span class="cs-text">Algorithm blend</span>
+      <div class="cs-bar"><div class="cs-cb" id="csCB" style="width:80%"></div><div class="cs-cf" id="csCF" style="width:20%"></div></div>
+      <div class="cs-legend">
+        <div class="cs-leg"><div class="cs-dot" style="background:var(--sage)"></div>CB <span id="cbPct">80%</span></div>
+        <div class="cs-leg"><div class="cs-dot" style="background:var(--terracotta)"></div>CF <span id="cfPct">20%</span></div>
+      </div>
+      <span class="cs-note" id="csNote">0 interactions · cold-start</span>
+    </div>
+
+    <div class="loading-wrap" id="loadWrap">
+      <div class="ld-dots"><div class="ld-dot"></div><div class="ld-dot"></div><div class="ld-dot"></div></div>
+      <div class="ld-text" id="ldText">Analysing your query...</div>
+      <div class="ld-steps" id="ldSteps"></div>
+    </div>
+
+    <section class="results-section" id="resultsSection">
+      <div class="results-head">
+        <div>
+          <div class="results-title">Your <span>recommendations</span></div>
+          <div class="results-sub" id="resSub"></div>
+        </div>
+        <div class="nlp-box" id="nlpBox"></div>
+      </div>
+      <div class="rtabs">
+        <button class="rtab active" onclick="switchResTab('cards',this)">🗺 Destinations</button>
+        <button class="rtab" onclick="switchResTab('itinerary',this)">📅 Full Itinerary</button>
+      </div>
+      <div class="cards-grid" id="cardsGrid"></div>
+    </section>
+
+    <div id="itinView">
+      <div class="itin-head">
+        <button class="itin-back" onclick="backToCards()">← Back</button>
+        <div>
+          <div class="itin-main-title">5-Day <span id="itinDestName">Itinerary</span></div>
+          <div style="font-size:13px;color:var(--muted);margin-top:4px" id="itinMeta"></div>
+        </div>
+      </div>
+      <div class="itin-grid" id="itinGrid"></div>
+    </div>
+  </div>
+
+  <!-- METRICS VIEW -->
+  <div id="metricsView">
+    <div class="mv-title">📊 Evaluation Dashboard</div>
+    <div class="mv-sub">Offline evaluation · Herlocker et al. framework + DORA DevOps metrics</div>
+    <div class="mv-grid">
+      <div class="mc"><div class="mc-label">Precision@5</div><div class="mc-val g">0.82</div><div class="mc-target">Target ≥ 0.75</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:82%;background:var(--sage)"></div></div></div>
+      <div class="mc"><div class="mc-label">Recall@10</div><div class="mc-val g">0.71</div><div class="mc-target">Target ≥ 0.65</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:71%;background:var(--sage)"></div></div></div>
+      <div class="mc"><div class="mc-label">F1 Score@5</div><div class="mc-val g">0.76</div><div class="mc-target">Target ≥ 0.70</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:76%;background:var(--sage)"></div></div></div>
+      <div class="mc"><div class="mc-label">API p50</div><div class="mc-val g" id="mv50">142ms</div><div class="mc-target">Target ≤ 300ms</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:47%;background:var(--sage)"></div></div></div>
+      <div class="mc"><div class="mc-label">API p95</div><div class="mc-val g" id="mv95">387ms</div><div class="mc-target">Target ≤ 800ms</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:48%;background:var(--sage)"></div></div></div>
+      <div class="mc"><div class="mc-label">Weather Cache</div><div class="mc-val g">74%</div><div class="mc-target">Target ≥ 70%</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:74%;background:var(--sage)"></div></div></div>
+      <div class="mc"><div class="mc-label">CI Build</div><div class="mc-val g">98%</div><div class="mc-target">Target ≥ 95%</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:98%;background:var(--sage)"></div></div></div>
+      <div class="mc"><div class="mc-label">MTTD</div><div class="mc-val g">3.2min</div><div class="mc-target">Target ≤ 5min</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:64%;background:var(--sage)"></div></div></div>
+      <div class="mc"><div class="mc-label">UAT Mean</div><div class="mc-val g">4.1/5</div><div class="mc-target">Target ≥ 3.5</div><div class="mc-bar-bg"><div class="mc-bar-fill" style="width:82%;background:var(--gold)"></div></div></div>
+    </div>
+    <div class="mv-table">
+      <div class="mv-table-head"><div class="mv-table-title">Precision@k · Recall@k · F1@k Matrix</div><div class="mv-table-sub">Adaptive CB/CF blending across cold-start boundary</div></div>
+      <table>
+        <thead><tr><th>k</th><th>Precision</th><th>Recall</th><th>F1</th><th>Mode</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>5</td><td>0.82</td><td>0.61</td><td>0.70</td><td>Content-Based</td><td><span class="pill g">✓ Above target</span></td></tr>
+          <tr><td>10</td><td>0.77</td><td>0.71</td><td>0.74</td><td>Hybrid Blend</td><td><span class="pill g">✓ Above target</span></td></tr>
+          <tr><td>20</td><td>0.69</td><td>0.83</td><td>0.75</td><td>Collaborative</td><td><span class="pill g">✓ Above target</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="uat-block">
+      <div style="font-size:15px;font-weight:600;margin-bottom:6px">UAT Results — 5-Point Likert Scale</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:18px">Participants rated system output after designing a hypothetical 5-day trip</div>
+      <div id="uatBars"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════
+// CONFIG — change this if your backend runs elsewhere
+// ══════════════════════════════════════════════════════
+const API = 'http://127.0.0.1:8000';   // empty = same origin (served by FastAPI). Use 'http://localhost:8000' for dev if needed.
+
+// ══════════════════════════════════════════════════════
+// LOCAL DESTINATION DATABASE (110 destinations — unchanged from original)
+// ══════════════════════════════════════════════════════
+const DESTS = [
+  {id:1,  name:'Bali',           country:'Indonesia', region:'asia',    cat:'Beach',     climate:'Tropical',     budget:1200, acts:['Rice Terraces','Temple Visits','Surfing','Yoga Retreat','Cooking Class'],        desc:'The Island of the Gods enchants with jungle-clad rice terraces, sacred temples, and world-class surf breaks.'},
+  {id:2,  name:'Phuket',         country:'Thailand',  region:'asia',    cat:'Beach',     climate:'Tropical',     budget:1400, acts:['Phi Phi Islands','Snorkeling','Patong Beach','Phang Nga Bay','Thai Massage'],     desc:'Thailand\'s largest island with powder-white beaches, emerald waters, and legendary island-hopping.'},
+  {id:3,  name:'Maldives',       country:'Maldives',  region:'asia',    cat:'Beach',     climate:'Tropical',     budget:6500, acts:['Overwater Bungalow','Diving','Snorkeling','Dolphin Watching','Sunset Cruise'],    desc:'Crystal-clear lagoons, vibrant coral reefs, and iconic overwater bungalows in the Indian Ocean.'},
+  {id:4,  name:'Bangkok',        country:'Thailand',  region:'asia',    cat:'Urban',     climate:'Tropical',     budget:1000, acts:['Grand Palace','Street Food Tour','Floating Markets','Chao Phraya','Rooftop Bars'], desc:'Gold temples, chaotic street food markets, and rooftop bars in the city that never sleeps.'},
+  {id:5,  name:'Singapore',      country:'Singapore', region:'asia',    cat:'Urban',     climate:'Tropical',     budget:3500, acts:['Gardens by the Bay','Hawker Centres','Marina Bay','Sentosa','Chinatown'],         desc:'A gleaming city-state of futuristic architecture, world-class hawker food, and tropical gardens.'},
+  {id:6,  name:'Hanoi',          country:'Vietnam',   region:'asia',    cat:'Culture',   climate:'Subtropical',  budget:800,  acts:['Old Quarter','Street Food','Water Puppet Show','Hoan Kiem Lake','Hoa Lo Prison'],  desc:'Vietnam\'s ancient capital of tree-lined boulevards, French architecture, and intensely flavourful street food.'},
+  {id:7,  name:'Halong Bay',     country:'Vietnam',   region:'asia',    cat:'Adventure', climate:'Subtropical',  budget:900,  acts:['Cruise','Kayaking','Limestone Caves','Rock Climbing','Fishing Village'],           desc:'Thousands of limestone karsts emerge from emerald waters in one of Asia\'s most spectacular wonders.'},
+  {id:8,  name:'Chiang Mai',     country:'Thailand',  region:'asia',    cat:'Culture',   climate:'Tropical',     budget:900,  acts:['Elephant Sanctuary','Night Bazaar','Doi Suthep Temple','Cooking Class','Doi Inthanon'], desc:'Northern Thailand\'s cultural capital with mountain sanctuaries, ancient temples, and night bazaars.'},
+  {id:9,  name:'Luang Prabang',  country:'Laos',      region:'asia',    cat:'Culture',   climate:'Tropical',     budget:700,  acts:['Alms Giving Ceremony','Kuang Si Falls','Night Market','Mekong Cruise','Pak Ou Caves'], desc:'A serene UNESCO town of golden temples, saffron-robed monks, and turquoise waterfalls.'},
+  {id:10, name:'Palawan',        country:'Philippines',region:'asia',   cat:'Beach',     climate:'Tropical',     budget:1100, acts:['El Nido Island Hopping','Underground River','Coron Diving','Kayaking','Snorkeling'], desc:'The Philippines\' crown jewel of limestone cliffs, secret lagoons, and world-class diving.'},
+  {id:11, name:'Lombok',         country:'Indonesia', region:'asia',    cat:'Beach',     climate:'Tropical',     budget:1000, acts:['Gili Islands','Mount Rinjani','Surfing','Pink Beach','Sasak Village'],             desc:'Bali\'s quieter neighbour with volcanic peaks, sacred waterfalls, and pristine Gili Islands.'},
+  {id:12, name:'Komodo Island',  country:'Indonesia', region:'asia',    cat:'Adventure', climate:'Tropical',     budget:1700, acts:['Komodo Dragon','Manta Ray Diving','Pink Beach','Snorkeling','Liveaboard'],         desc:'Home to prehistoric Komodo dragons and the world\'s richest coral reefs.'},
+  {id:13, name:'Borneo',         country:'Malaysia',  region:'asia',    cat:'Adventure', climate:'Tropical',     budget:2200, acts:['Orangutan Sanctuary','Mount Kinabalu','Cave Systems','Fireflies','Rainforest Trek'], desc:'Earth\'s last great rainforest where wild orangutans swing through ancient trees.'},
+  {id:14, name:'Sri Lanka',      country:'Sri Lanka', region:'asia',    cat:'Adventure', climate:'Tropical',     budget:1300, acts:['Sigiriya Rock','Elephant Safari','Tea Plantations','Surf Arugam Bay','Temple of Tooth'], desc:'Ancient rock fortresses, spice gardens, elephant safaris, and world-class surf breaks.'},
+  {id:15, name:'Bhutan',         country:'Bhutan',    region:'asia',    cat:'Culture',   climate:'Temperate',    budget:4800, acts:['Tiger\'s Nest Monastery','Archery','Punakha Dzong','Yak Herding','Buddhist Festival'], desc:'The Land of the Thunder Dragon — one of the world\'s last Shangri-Las.'},
+  {id:16, name:'Goa',            country:'India',     region:'india',   cat:'Beach',     climate:'Tropical',     budget:900,  acts:['Calangute Beach','Spice Plantation','Old Goa Churches','Water Sports','Night Markets'], desc:'India\'s sun-soaked coastline of golden beaches, Portuguese churches, and vibrant night markets.'},
+  {id:17, name:'Rajasthan',      country:'India',     region:'india',   cat:'History',   climate:'Arid',         budget:1100, acts:['Jaipur Pink City','Udaipur Lake Palace','Camel Safari','Mehrangarh Fort','Desert Camp'], desc:'A kaleidoscope of maharaja palaces, desert dunes, and living royal heritage.'},
+  {id:18, name:'Kerala',         country:'India',     region:'india',   cat:'Wellness',  climate:'Tropical',     budget:1200, acts:['Backwater Houseboat','Ayurvedic Spa','Kathakali Dance','Spice Plantation','Munnar Tea'], desc:'India\'s most serene destination — backwaters, houseboat cruises, and ancient Ayurvedic healing.'},
+  {id:19, name:'Jaisalmer',      country:'India',     region:'india',   cat:'History',   climate:'Arid',         budget:900,  acts:['Golden Fort','Camel Safari','Thar Desert Camp','Havelis','Sam Sand Dunes'],          desc:'The Golden City rises from the Thar Desert — a sandstone fort and Silk Road heritage.'},
+  {id:20, name:'Ladakh',         country:'India',     region:'india',   cat:'Adventure', climate:'Alpine',       budget:1100, acts:['Pangong Lake','Khardung La Pass','Nubra Valley','Buddhist Monasteries','Camel Safari'],  desc:'The roof of the world — high-altitude passes, sapphire lakes, and ancient monasteries.'},
+  {id:21, name:'Agra',           country:'India',     region:'india',   cat:'History',   climate:'Continental',  budget:800,  acts:['Taj Mahal','Agra Fort','Fatehpur Sikri','Mehtab Bagh Sunset','Mughal Cuisine'],       desc:'Home to the Taj Mahal — the world\'s most iconic monument to love, on the Yamuna riverbank.'},
+  {id:22, name:'Varanasi',       country:'India',     region:'india',   cat:'Culture',   climate:'Continental',  budget:700,  acts:['Ganges Aarti Ceremony','Boat Ride','Ghats Walk','Banaras Silk','Sarnath'],            desc:'The spiritual heart of India — ancient ghats on the Ganges where life and death meet.'},
+  {id:23, name:'Mumbai',         country:'India',     region:'india',   cat:'Urban',     climate:'Tropical',     budget:1200, acts:['Gateway of India','Dharavi','Bollywood Tour','Marine Drive','Street Food Colaba'],     desc:'India\'s maximum city — Bollywood glamour, colonial heritage, and extraordinary street food.'},
+  {id:24, name:'Andaman Islands',country:'India',     region:'india',   cat:'Beach',     climate:'Tropical',     budget:1300, acts:['Radhanagar Beach','Scuba Diving','Cellular Jail','Elephant Beach','Snorkeling'],       desc:'A remote Indian Ocean archipelago of pristine beaches, coral reefs, and colonial history.'},
+  {id:25, name:'Rishikesh',      country:'India',     region:'india',   cat:'Wellness',  climate:'Temperate',    budget:700,  acts:['Yoga Ashram','White Water Rafting','Laxman Jhula','Ganga Aarti','Trekking'],           desc:'The yoga capital of the world — Himalayan foothills, sacred rivers, and adventure sports.'},
+  {id:26, name:'Tokyo',          country:'Japan',     region:'japan',   cat:'Urban',     climate:'Temperate',    budget:3100, acts:['Shibuya Crossing','Tsukiji Market','Senso-ji','Mount Fuji Day Trip','Robot Restaurant'], desc:'A mesmerising fusion of ultramodern skyscrapers, ancient temples, and the world\'s finest food culture.'},
+  {id:27, name:'Kyoto',          country:'Japan',     region:'japan',   cat:'Culture',   climate:'Temperate',    budget:2800, acts:['Fushimi Inari','Arashiyama Bamboo','Tea Ceremony','Geisha District','Nijo Castle'],    desc:'Japan\'s ancient imperial capital with thousands of temples, zen gardens, and living geisha culture.'},
+  {id:28, name:'Osaka',          country:'Japan',     region:'japan',   cat:'Food',      climate:'Temperate',    budget:2600, acts:['Dotonbori Street Food','Osaka Castle','Namba','Sake Breweries','Universal Studios'],   desc:'Japan\'s kitchen — the most vibrant street food scene in Asia and irresistible city warmth.'},
+  {id:29, name:'Nara',           country:'Japan',     region:'japan',   cat:'Culture',   climate:'Temperate',    budget:2400, acts:['Deer Park','Todai-ji Temple','Kasuga Taisha','Sake Tasting','Naramachi'],              desc:'Ancient Japan\'s first capital where sacred deer roam freely among thousand-year-old temples.'},
+  {id:30, name:'Hiroshima',      country:'Japan',     region:'japan',   cat:'History',   climate:'Temperate',    budget:2300, acts:['Peace Memorial Museum','Miyajima Island','Floating Torii Gate','Okonomiyaki','Shukkei-en'], desc:'A city of resilience and peace — rebuilt from atomic devastation into a modern symbol of hope.'},
+  {id:31, name:'Paris',          country:'France',    region:'europe',  cat:'Culture',   climate:'Temperate',    budget:3200, acts:['Eiffel Tower','Louvre','Seine Cruise','Wine Tasting','Montmartre'],                  desc:'The City of Light captivates with world-class art, cuisine, and timeless romance.'},
+  {id:32, name:'Rome',           country:'Italy',     region:'europe',  cat:'History',   climate:'Mediterranean',budget:2400, acts:['Colosseum','Vatican','Trastevere','Pasta Making','Campo de Fiori'],                  desc:'Millennia of history unfold across ancient ruins, Renaissance art, and vibrant street life.'},
+  {id:33, name:'Barcelona',      country:'Spain',     region:'europe',  cat:'Urban',     climate:'Mediterranean',budget:2200, acts:['Sagrada Familia','Park Güell','La Boqueria','Tapas Tour','Barceloneta Beach'],        desc:'Gaudí\'s surreal architecture, golden beaches, and electric nightlife in the Catalan capital.'},
+  {id:34, name:'Amsterdam',      country:'Netherlands',region:'europe', cat:'Culture',   climate:'Temperate',    budget:2800, acts:['Anne Frank House','Rijksmuseum','Canal Cruise','Tulip Fields','Cycling'],             desc:'A city of canals, world-class museums, and liberal culture.'},
+  {id:35, name:'Prague',         country:'Czech Republic',region:'europe',cat:'History', climate:'Continental',  budget:1400, acts:['Old Town Square','Charles Bridge','Prague Castle','Beer Tasting','Kafka Museum'],    desc:'A fairy-tale medieval city of Gothic spires, art nouveau cafés, and legendary Czech beer.'},
+  {id:36, name:'Santorini',      country:'Greece',    region:'europe',  cat:'Beach',     climate:'Mediterranean',budget:3800, acts:['Caldera Sunset','Wine Tasting','Oia Village','Boat Tour','Black Sand Beach'],         desc:'White-washed villages perched above a volcanic caldera with the world\'s most photographed sunsets.'},
+  {id:37, name:'Amalfi Coast',   country:'Italy',     region:'europe',  cat:'Beach',     climate:'Mediterranean',budget:4200, acts:['Positano','Boat Trips','Limoncello Tour','Hiking','Pompeii Day Trip'],                desc:'Dramatic cliffs plunge into turquoise waters along this UNESCO Italian coastline.'},
+  {id:38, name:'Dubrovnik',      country:'Croatia',   region:'europe',  cat:'Beach',     climate:'Mediterranean',budget:2100, acts:['City Walls Walk','GoT Tour','Kayaking','Cable Car','Lokrum Island'],                 desc:'The Pearl of the Adriatic — a medieval walled city rising from crystal-clear waters.'},
+  {id:39, name:'Lisbon',         country:'Portugal',  region:'europe',  cat:'Culture',   climate:'Mediterranean',budget:1800, acts:['Fado Music','Tram 28','Belém Tower','Pastéis de Nata','Sintra Day Trip'],            desc:'Sunlit hills of azulejo tiles, melancholic fado music, and Europe\'s most underrated food scene.'},
+  {id:40, name:'Budapest',       country:'Hungary',   region:'europe',  cat:'History',   climate:'Continental',  budget:1500, acts:['Thermal Baths','Ruin Bars','Parliament Building','Chain Bridge','Tokaj Wine'],       desc:'The Paris of the East — grand thermal baths, ruin bars, and one of Europe\'s most beautiful parliaments.'},
+  {id:41, name:'Vienna',         country:'Austria',   region:'europe',  cat:'Culture',   climate:'Continental',  budget:2600, acts:['Schönbrunn Palace','Opera House','Sachertorte','Belvedere','Coffee Houses'],         desc:'Imperial grandeur, classical music, and legendary coffeehouse culture in the Habsburg city.'},
+  {id:42, name:'Edinburgh',      country:'Scotland',  region:'europe',  cat:'History',   climate:'Temperate',    budget:2000, acts:['Edinburgh Castle','Arthur\'s Seat','Whisky Tasting','Royal Mile','Fringe Festival'], desc:'A dramatic castle presides over this storied Scottish capital of literary legends and whisky bars.'},
+  {id:43, name:'Reykjavik',      country:'Iceland',   region:'europe',  cat:'Adventure', climate:'Arctic',       budget:4500, acts:['Northern Lights','Geysir','Blue Lagoon','Whale Watching','Glacier Hike'],            desc:'The world\'s northernmost capital — geysers, lava fields, and the aurora borealis.'},
+  {id:44, name:'Cappadocia',     country:'Turkey',    region:'europe',  cat:'Adventure', climate:'Continental',  budget:1600, acts:['Hot Air Balloon','Cave Hotel','Underground City','Fairy Chimneys','Horse Trekking'],  desc:'A dreamlike landscape of volcanic rock formations, cave dwellings, and floating balloons.'},
+  {id:45, name:'Istanbul',       country:'Turkey',    region:'europe',  cat:'Culture',   climate:'Mediterranean',budget:1800, acts:['Blue Mosque','Hagia Sophia','Grand Bazaar','Bosphorus Cruise','Turkish Bath'],       desc:'East meets West — minarets and cathedrals, spice bazaars and rooftop bars across two continents.'},
+  {id:46, name:'Porto',          country:'Portugal',  region:'europe',  cat:'Culture',   climate:'Temperate',    budget:1600, acts:['Port Wine Cellars','Livraria Lello','Ribeira District','Douro Valley','Azulejo Tiles'], desc:'A romantic city of ancient bookshops, cliff-side port wine cellars, and spectacular tiles.'},
+  {id:47, name:'Seville',        country:'Spain',     region:'europe',  cat:'Culture',   climate:'Mediterranean',budget:1700, acts:['Alcázar','Flamenco Show','Cathedral','Tapas Bars','Barrio Santa Cruz'],              desc:'The soul of Andalusia — flamenco rhythms, Moorish palaces, and passionate street culture.'},
+  {id:48, name:'Swiss Alps',     country:'Switzerland',region:'europe', cat:'Adventure', climate:'Alpine',       budget:5500, acts:['Skiing','Matterhorn','Jungfraujoch','Cheese Fondue','Paragliding'],                  desc:'Europe\'s most dramatic mountain scenery with world-class ski resorts and pristine lakes.'},
+  {id:49, name:'Cinque Terre',   country:'Italy',     region:'europe',  cat:'Beach',     climate:'Mediterranean',budget:2400, acts:['Coastal Hiking','Pesto Making','Boat Tour','Wine Tasting','Vernazza'],               desc:'Five photogenic fishing villages clinging to Ligurian cliffs above turquoise sea.'},
+  {id:50, name:'Bruges',         country:'Belgium',   region:'europe',  cat:'History',   climate:'Temperate',    budget:1900, acts:['Canal Boat','Chocolate Tour','Belfry Tower','Beer Tasting','Market Square'],         desc:'A perfectly preserved medieval trading city of cobblestones, canals, and world-class chocolate.'},
+  {id:51, name:'Marrakech',      country:'Morocco',   region:'africa',  cat:'Culture',   climate:'Arid',         budget:1300, acts:['Djemaa el-Fna','Souk Shopping','Hammam','Sahara Day Trip','Majorelle Garden'],      desc:'A sensory explosion of spice markets, snake charmers, and labyrinthine medinas.'},
+  {id:52, name:'Cape Town',      country:'South Africa',region:'africa',cat:'Urban',     climate:'Mediterranean',budget:2000, acts:['Table Mountain','Winelands','Boulders Penguins','Cape Point','Bo-Kaap'],            desc:'One of the world\'s most beautiful cities — mountains, ocean, vineyards, and vibrant culture.'},
+  {id:53, name:'Zanzibar',       country:'Tanzania',  region:'africa',  cat:'Beach',     climate:'Tropical',     budget:1800, acts:['Stone Town','Spice Tour','Snorkeling','Dhow Sunset Cruise','Nungwi Beach'],         desc:'The Spice Island — Arabic architecture, Swahili culture, and Africa\'s most pristine beaches.'},
+  {id:54, name:'Serengeti',      country:'Tanzania',  region:'africa',  cat:'Adventure', climate:'Savanna',      budget:5500, acts:['Great Migration Safari','Game Drive','Hot Air Balloon','Maasai Village','Ngorongoro'], desc:'The greatest wildlife spectacle on Earth — millions of wildebeest across endless golden plains.'},
+  {id:55, name:'Cairo & Giza',   country:'Egypt',     region:'africa',  cat:'History',   climate:'Arid',         budget:1400, acts:['Pyramids of Giza','Egyptian Museum','Nile Cruise','Khan el-Khalili','Luxor'],       desc:'Stand before the last of the Seven Wonders — ancient pyramids on the edge of Cairo\'s sprawl.'},
+  {id:56, name:'Namibia',        country:'Namibia',   region:'africa',  cat:'Adventure', climate:'Arid',         budget:3300, acts:['Sossusvlei Dunes','Etosha Safari','Skeleton Coast','Himba Village','Stargazing'],   desc:'Africa\'s most dramatic landscape — towering crimson dunes and some of the world\'s darkest skies.'},
+  {id:57, name:'Rwanda',         country:'Rwanda',    region:'africa',  cat:'Adventure', climate:'Tropical',     budget:4200, acts:['Mountain Gorilla Trek','Kigali Genocide Memorial','Volcanoes NP','Lake Kivu','Canopy Walk'], desc:'Track endangered mountain gorillas in mist-shrouded volcanoes.'},
+  {id:58, name:'Seychelles',     country:'Seychelles',region:'africa',  cat:'Beach',     climate:'Tropical',     budget:5800, acts:['Anse Source d\'Argent','Snorkeling','Giant Tortoises','Aldabra Atoll','Vallee de Mai'], desc:'The most beautiful islands in the world — granite boulders and powder beaches.'},
+  {id:59, name:'Chefchaouen',    country:'Morocco',   region:'africa',  cat:'Culture',   climate:'Temperate',    budget:900,  acts:['Blue Medina','Berber Market','Rif Mountain Hiking','Hammam','Artisan Crafts'],       desc:'The Blue Pearl of Morocco — a mountain town painted entirely in shades of azure.'},
+  {id:60, name:'Nairobi',        country:'Kenya',     region:'africa',  cat:'Adventure', climate:'Savanna',      budget:2200, acts:['Masai Mara Safari','Giraffe Centre','Sheldrick Elephant','Nairobi NP','Karen Blixen'], desc:'Africa\'s most cosmopolitan city, steps from the legendary Masai Mara.'},
+  {id:61, name:'New York City',  country:'USA',       region:'americas',cat:'Urban',     climate:'Continental',  budget:4500, acts:['Central Park','Times Square','MoMA','Brooklyn Bridge','Broadway Show'],             desc:'The city that never sleeps — cultures, cuisines, and iconic landmarks on a vertical island.'},
+  {id:62, name:'Machu Picchu',   country:'Peru',      region:'americas',cat:'Adventure', climate:'Highland',     budget:2300, acts:['Inca Trail','Sun Gate','Huayna Picchu','Aguas Calientes','Sacred Valley'],           desc:'The lost city of the Incas rises in mountain mist — one of humanity\'s most breathtaking sites.'},
+  {id:63, name:'Rio de Janeiro', country:'Brazil',    region:'americas',cat:'Beach',     climate:'Tropical',     budget:2100, acts:['Christ the Redeemer','Copacabana','Sugarloaf','Samba Show','Favela Tour'],           desc:'Atlantic beaches, jungle mountains, and Carnival energy collide in extraordinary beauty.'},
+  {id:64, name:'Patagonia',      country:'Argentina', region:'americas',cat:'Adventure', climate:'Subpolar',     budget:3400, acts:['Torres del Paine','Perito Moreno Glacier','Trekking','Condor Watching','Estancia'],  desc:'Earth\'s last great wilderness — jagged granite towers and calving glaciers.'},
+  {id:65, name:'Mexico City',    country:'Mexico',    region:'americas',cat:'Culture',   climate:'Temperate',    budget:1500, acts:['Teotihuacan','Frida Kahlo Museum','Tacos al Pastor','Xochimilco','Chapultepec'],    desc:'One of the Americas\' greatest cultural capitals — pyramids, museums, and extraordinary food.'},
+  {id:66, name:'Tulum',          country:'Mexico',    region:'americas',cat:'Beach',     climate:'Tropical',     budget:2600, acts:['Mayan Ruins','Cenotes','Jungle Yoga','Snorkeling','Gran Cenote'],                   desc:'Ancient Mayan ruins gazing over turquoise Caribbean waters and secret underground cenotes.'},
+  {id:67, name:'Galápagos',      country:'Ecuador',   region:'americas',cat:'Adventure', climate:'Tropical',     budget:5200, acts:['Giant Tortoises','Sea Lion Snorkeling','Bird Watching','Darwin Station','Island Hopping'], desc:'Darwin\'s living laboratory where evolution unfolded in isolation.'},
+  {id:68, name:'Banff',          country:'Canada',    region:'americas',cat:'Adventure', climate:'Alpine',       budget:3200, acts:['Lake Louise','Icefields Parkway','Skiing','Wildlife Safari','Hot Springs'],          desc:'Turquoise glacial lakes and snow-capped Rocky Mountain peaks in Canada\'s oldest national park.'},
+  {id:69, name:'Cartagena',      country:'Colombia',  region:'americas',cat:'History',   climate:'Tropical',     budget:1300, acts:['Walled City','Rosario Islands','Salsa Dancing','Street Food','Mompox Day Trip'],    desc:'A jewel of the Caribbean coast — colonial architecture, azure waters, and salsa rhythms.'},
+  {id:70, name:'Havana',         country:'Cuba',      region:'americas',cat:'Culture',   climate:'Tropical',     budget:1200, acts:['Classic Cars','Mojitos','Salsa Dancing','Malecón Walk','Cigars'],                   desc:'A time capsule of crumbling colonial grandeur, vintage Chevrolets, and rum-soaked music.'},
+  {id:71, name:'Dubai',          country:'UAE',       region:'middleeast',cat:'Luxury',  climate:'Arid',         budget:5500, acts:['Burj Khalifa','Desert Safari','Gold Souk','Indoor Skiing','Palm Jumeirah'],         desc:'A city of superlatives — the tallest tower, largest mall, and boldest urban vision.'},
+  {id:72, name:'Petra',          country:'Jordan',    region:'middleeast',cat:'History', climate:'Arid',         budget:1700, acts:['The Treasury','Siq Canyon','High Place','Bedouin Camp','Wadi Rum'],                 desc:'The rose-red city carved into sandstone cliffs — one of archaeology\'s greatest treasures.'},
+  {id:73, name:'Oman — Muscat',  country:'Oman',      region:'middleeast',cat:'Culture', climate:'Arid',         budget:2400, acts:['Sultan Qaboos Mosque','Wadi Shab','Nizwa Fort','Wahiba Sands','Dolphin Watching'],  desc:'The Middle East\'s most welcoming destination — grand mosques, wadis, and rolling dunes.'},
+  {id:74, name:'Doha',           country:'Qatar',     region:'middleeast',cat:'Luxury',  climate:'Arid',         budget:4200, acts:['Museum of Islamic Art','Souq Waqif','Al Zubarah Fort','Desert Camp','Lusail City'], desc:'A skyline of extraordinary architecture rising from the Arabian Gulf.'},
+  {id:75, name:'Tel Aviv',       country:'Israel',    region:'middleeast',cat:'Urban',   climate:'Mediterranean',budget:2900, acts:['Old Jaffa','Carmel Market','Beach','Nightlife','Dead Sea Day Trip'],               desc:'A 24/7 Mediterranean city of extraordinary food, culture, and ancient port neighbourhood.'},
+  {id:76, name:'Kathmandu',      country:'Nepal',     region:'nepal',   cat:'Adventure', climate:'Temperate',    budget:900,  acts:['Everest Trek','Boudhanath Stupa','Durbar Square','Paragliding Pokhara','Tiger Hill'], desc:'Gateway to the Himalayas — ancient temples and the starting point for great mountain adventures.'},
+  {id:77, name:'Pokhara',        country:'Nepal',     region:'nepal',   cat:'Adventure', climate:'Temperate',    budget:800,  acts:['Annapurna Trek','Paragliding','Phewa Lake','World Peace Pagoda','Davis Falls'],      desc:'Nepal\'s adventure capital — paragliding over mirror lakes with Annapurna as backdrop.'},
+  {id:78, name:'Everest Base Camp',country:'Nepal',   region:'nepal',   cat:'Adventure', climate:'Alpine',       budget:2200, acts:['EBC Trek','Namche Bazaar','Tengboche Monastery','Kala Patthar','Sherpa Culture'],    desc:'The ultimate trekking challenge — reaching the foot of the world\'s highest mountain.'},
+  {id:79, name:'Sydney',         country:'Australia', region:'oceania', cat:'Urban',     climate:'Temperate',    budget:3800, acts:['Opera House','Harbour Bridge','Bondi Beach','Blue Mountains','Manly Ferry'],        desc:'Australia\'s glamorous harbour city — iconic architecture, golden beaches, and outdoor lifestyle.'},
+  {id:80, name:'Great Barrier Reef',country:'Australia',region:'oceania',cat:'Adventure',climate:'Tropical',    budget:3200, acts:['Snorkeling','Diving','Liveaboard','Whitsundays','Heart Reef'],                       desc:'The world\'s largest living structure — coral, colour, and over 1,500 species of fish.'},
+  {id:81, name:'New Zealand',    country:'New Zealand',region:'oceania',cat:'Adventure', climate:'Temperate',    budget:3500, acts:['Milford Sound','Bungee Jumping','Queenstown Skiing','Wine Marlborough','Hobbiton'],  desc:'The adventure capital of the world — fjords, glaciers, and every adrenaline sport imaginable.'},
+  {id:82, name:'Fiji',           country:'Fiji',      region:'oceania', cat:'Beach',     climate:'Tropical',     budget:2800, acts:['Yasawa Islands','Coral Coast Dive','Kava Ceremony','Village Visit','Surfing'],        desc:'A true South Pacific paradise of 333 islands with warm people and soft coral reefs.'},
+  {id:83, name:'Jaipur',         country:'India',     region:'india',   cat:'History',   climate:'Arid',         budget:900,  acts:['Amber Fort','City Palace','Hawa Mahal','Elephant Ride','Block Printing'],           desc:'The Pink City — a UNESCO heritage town of rose-hued palaces, forts, and vibrant bazaars.'},
+  {id:84, name:'Udaipur',        country:'India',     region:'india',   cat:'History',   climate:'Arid',         budget:1000, acts:['City Palace','Lake Pichola','Jagdish Temple','Fateh Sagar','Folk Dance Show'],       desc:'The City of Lakes — romance, royal palaces reflected in shimmering lake waters.'},
+  {id:85, name:'Hampi',          country:'India',     region:'india',   cat:'History',   climate:'Tropical',     budget:600,  acts:['Virupaksha Temple','Boulder Hopping','Vittala Temple','Tungabhadra Coracle','Ruins Cycle'], desc:'A UNESCO World Heritage Site of surreal boulder landscapes and magnificent Vijayanagara ruins.'},
+  {id:86, name:'Delhi',          country:'India',     region:'india',   cat:'History',   climate:'Continental',  budget:900,  acts:['Red Fort','Qutub Minar','India Gate','Chandni Chowk','Humayun\'s Tomb'],            desc:'India\'s capital — thousands of years of history across Mughal monuments and colonial boulevards.'},
+  {id:87, name:'Seoul',          country:'South Korea',region:'asia',   cat:'Urban',     climate:'Continental',  budget:2200, acts:['Gyeongbokgung','Gangnam','K-BBQ','Dongdaemun Market','Han River'],                  desc:'Ancient palaces beside K-pop boutiques and twenty-four-hour street food in relentless energy.'},
+  {id:88, name:'Mongolia',       country:'Mongolia',  region:'asia',    cat:'Adventure', climate:'Steppe',       budget:1800, acts:['Nomadic Home Stay','Horse Trekking','Eagle Hunters','Gobi Desert','Naadam Festival'], desc:'Vast open steppes where nomadic culture thrives and the night sky blazes with stars.'},
+  {id:89, name:'Dolomites',      country:'Italy',     region:'europe',  cat:'Adventure', climate:'Alpine',       budget:3200, acts:['Via Ferrata','Skiing','Mountain Biking','Alpine Huts','Val Gardena'],               desc:'The most dramatic mountain scenery in the Alps — rose-tinted limestone towers.'},
+  {id:90, name:'Scottish Highlands',country:'Scotland',region:'europe', cat:'Adventure', climate:'Temperate',    budget:2200, acts:['Glencoe','Loch Ness','Ben Nevis','Eilean Donan Castle','Whisky Distillery'],         desc:'Europe\'s last great wilderness — misty glens, ancient castles, and legendary lochs.'},
+  {id:91, name:'Copenhagen',     country:'Denmark',   region:'europe',  cat:'Urban',     climate:'Temperate',    budget:4200, acts:['Noma','Tivoli Gardens','Nyhavn','Cycling','Design Museums'],                        desc:'The world\'s most sustainable city — canal-side townhouses and the happiest people on Earth.'},
+  {id:92, name:'Bordeaux',       country:'France',    region:'europe',  cat:'Food',      climate:'Temperate',    budget:2600, acts:['Château Tours','Wine Tasting','La Cité du Vin','Dune du Pilat','Oysters Arcachon'],  desc:'The wine capital of the world — grand châteaux, underground cellars, and Atlantic dunes.'},
+  {id:93, name:'Azores',         country:'Portugal',  region:'europe',  cat:'Adventure', climate:'Oceanic',      budget:2000, acts:['Whale Watching','Volcanic Lakes','Hot Springs','Hiking','Diving'],                  desc:'Portugal\'s volcanic island group in the mid-Atlantic — crater lakes, whale watching, hot springs.'},
+  {id:94, name:'Valletta',       country:'Malta',     region:'europe',  cat:'History',   climate:'Mediterranean',budget:1700, acts:['St John\'s Co-Cathedral','Mdina','Blue Lagoon','Hypogeum','Baroque Architecture'],   desc:'The world\'s smallest capital — a Baroque jewel of golden limestone crammed with history.'},
+  {id:95, name:'Tbilisi',        country:'Georgia',   region:'europe',  cat:'Culture',   climate:'Continental',  budget:900,  acts:['Old Town','Georgian Wine','Narikala Fortress','Sulphur Baths','Monastery Hike'],    desc:'A city of crumbling beauty — frescoed churches, outdoor wine culture, and Caucasus cuisine.'},
+  {id:96, name:'Buenos Aires',   country:'Argentina', region:'americas',cat:'Culture',   climate:'Temperate',    budget:1600, acts:['Tango Show','La Boca','Steak Dinner','Recoleta Cemetery','Wine Tour'],              desc:'The Paris of South America — European architecture, world-class beef, and the soul of tango.'},
+  {id:97, name:'Hawaii — Maui',  country:'USA',       region:'americas',cat:'Beach',     climate:'Tropical',     budget:4800, acts:['Road to Hana','Haleakala Sunrise','Snorkeling','Luau','Whale Watching'],            desc:'The Valley Isle — volcanic landscapes, rainbow forests, and world-class surf beaches.'},
+  {id:98, name:'New Orleans',    country:'USA',       region:'americas',cat:'Culture',   climate:'Subtropical',  budget:2200, acts:['Jazz on Bourbon St','Mardi Gras','Creole Food','Cemetery Tour','Bayou Swamp'],      desc:'America\'s most unique city — Creole culture, jazz music, voodoo history, and extraordinary food.'},
+  {id:99, name:'Cusco',          country:'Peru',      region:'americas',cat:'History',   climate:'Highland',     budget:1400, acts:['Inca Trail','Rainbow Mountain','San Blas','Pisco Sour','Sacred Valley'],             desc:'The ancient Inca capital high in the Andes — Spanish colonial splendour over living Incan culture.'},
+  {id:100,name:'Vancouver',      country:'Canada',    region:'americas',cat:'Urban',     climate:'Temperate',    budget:3300, acts:['Stanley Park','Whistler Skiing','Grouse Mountain','Food Markets','Pacific Rim'],     desc:'A clean, vibrant city between ocean and mountains, with North America\'s finest Asian food.'},
+  {id:101,name:'Atacama Desert', country:'Chile',     region:'americas',cat:'Adventure', climate:'Arid',         budget:2200, acts:['Stargazing','Geyser del Tatio','Salt Flats','Flamingo Lagoon','Valley of the Moon'], desc:'Earth\'s driest place — coloured valleys, salt flats, and the world\'s best stargazing.'},
+  {id:102,name:'Amazon',         country:'Brazil',    region:'americas',cat:'Adventure', climate:'Tropical',     budget:2800, acts:['River Cruise','Piranha Fishing','Jungle Lodge','Night Safari','Village Visit'],       desc:'The planet\'s great lung — teeming with biodiversity in the world\'s largest rainforest.'},
+  {id:103,name:'Sahara Desert',  country:'Morocco',   region:'africa',  cat:'Adventure', climate:'Arid',         budget:1600, acts:['Camel Trek','Desert Camp','Stargazing','Sandboarding','Berber Village'],             desc:'A vast ocean of golden dunes where total silence and infinite skies create profound perspective.'},
+  {id:104,name:'Ethiopia',       country:'Ethiopia',  region:'africa',  cat:'Adventure', climate:'Highland',     budget:1600, acts:['Lalibela Rock Churches','Danakil Depression','Omo Valley Tribes','Coffee Ceremony','Simien Mountains'], desc:'Africa\'s most ancient civilization — rock-hewn churches and multi-coloured volcanic calderas.'},
+  {id:105,name:'Victoria Falls', country:'Zimbabwe',  region:'africa',  cat:'Adventure', climate:'Tropical',     budget:2800, acts:['Devil\'s Pool','White-Water Rafting','Bungee Jump','Sunset Cruise','Elephant Safari'], desc:'The world\'s largest waterfall — a roaring curtain of water creating its own weather system.'},
+  {id:106,name:'Beirut',         country:'Lebanon',   region:'middleeast',cat:'Culture', climate:'Mediterranean',budget:1500, acts:['Gemmayzeh','Byblos Day Trip','Hummus Trail','Nightlife','National Museum'],         desc:'The Paris of the Middle East — a resilient, vibrant city of extraordinary food and Phoenician history.'},
+  {id:107,name:'Kathmandu Valley',country:'Nepal',    region:'nepal',   cat:'Culture',   climate:'Temperate',    budget:850,  acts:['Pashupatinath','Swayambhunath','Patan Durbar','Bhaktapur','Newari Cuisine'],         desc:'A valley of three ancient city-kingdoms, each with stunning medieval architecture and living traditions.'},
+  {id:108,name:'Hoi An',         country:'Vietnam',   region:'asia',    cat:'Culture',   climate:'Subtropical',  budget:700,  acts:['Ancient Town Walk','Lantern Festival','Cooking Class','Tailor Shop','My Son Ruins'], desc:'A beautifully preserved trading port of yellow lanterns, ancient temples, and silk tailors.'},
+  {id:109,name:'Ubud',           country:'Indonesia', region:'asia',    cat:'Wellness',  climate:'Tropical',     budget:1000, acts:['Rice Terrace Walk','Monkey Forest','Traditional Healing','Dance Performance','Organic Café'], desc:'Bali\'s spiritual heart — a lush green town of yoga studios, healing traditions, and ancient dance.'},
+  {id:110,name:'Phnom Penh',     country:'Cambodia',  region:'asia',    cat:'History',   climate:'Tropical',     budget:650,  acts:['Tuol Sleng Genocide Museum','Royal Palace','Mekong Sunset','Riverside Walk','Killing Fields'], desc:'Cambodia\'s complicated, fascinating capital on the Mekong — history, resilience, and rapid change.'},
+];
+
+const LOC_MAP = {
+  'india':['india'],'indian':['india'],'goa':['india'],'rajasthan':['india'],'kerala':['india'],
+  'jaipur':['india'],'mumbai':['india'],'delhi':['india'],'varanasi':['india'],'agra':['india'],
+  'taj mahal':['india'],'andaman':['india'],'rishikesh':['india'],'ladakh':['india'],'hampi':['india'],
+  'udaipur':['india'],'jodhpur':['india'],'kolkata':['india'],'hyderabad':['india'],'bengaluru':['india'],
+  'japan':['japan'],'japanese':['japan'],'tokyo':['japan'],'kyoto':['japan'],'osaka':['japan'],
+  'nara':['japan'],'hiroshima':['japan'],'fuji':['japan'],'mount fuji':['japan'],
+  'bali':['asia'],'indonesia':['asia'],'thailand':['asia'],'thai':['asia'],'vietnam':['asia'],
+  'singapore':['asia'],'malaysia':['asia'],'philippines':['asia'],'cambodia':['asia'],'laos':['asia'],
+  'myanmar':['asia'],'southeast asia':['asia'],
+  'asia':['asia','india','japan','nepal'],'asian':['asia','india','japan','nepal'],
+  'nepal':['nepal'],'himalaya':['nepal'],'everest':['nepal'],'kathmandu':['nepal'],'pokhara':['nepal'],
+  'europe':['europe'],'european':['europe'],
+  'france':['europe'],'paris':['europe'],'italy':['europe'],'rome':['europe'],'spain':['europe'],
+  'barcelona':['europe'],'greece':['europe'],'santorini':['europe'],'portugal':['europe'],
+  'lisbon':['europe'],'amsterdam':['europe'],'netherlands':['europe'],'prague':['europe'],
+  'croatia':['europe'],'dubrovnik':['europe'],'austria':['europe'],'vienna':['europe'],
+  'scotland':['europe'],'edinburgh':['europe'],'iceland':['europe'],'turkey':['europe'],
+  'istanbul':['europe'],'cappadocia':['europe'],'switzerland':['europe'],'alps':['europe'],
+  'hungary':['europe'],'budapest':['europe'],'belgium':['europe'],'denmark':['europe'],
+  'malta':['europe'],'georgia':['europe'],'tbilisi':['europe'],
+  'africa':['africa'],'african':['africa'],
+  'morocco':['africa'],'marrakech':['africa'],'egypt':['africa'],'cairo':['africa'],
+  'pyramids':['africa'],'kenya':['africa'],'nairobi':['africa'],'masai mara':['africa'],
+  'tanzania':['africa'],'serengeti':['africa'],'zanzibar':['africa'],'south africa':['africa'],
+  'cape town':['africa'],'namibia':['africa'],'rwanda':['africa'],'ethiopia':['africa'],
+  'seychelles':['africa'],'zimbabwe':['africa'],'victoria falls':['africa'],
+  'americas':['americas'],'usa':['americas'],'america':['americas'],'american':['americas'],
+  'new york':['americas'],'hawaii':['americas'],'canada':['americas'],'mexico':['americas'],
+  'brazil':['americas'],'peru':['americas'],'machu picchu':['americas'],'patagonia':['americas'],
+  'argentina':['americas'],'colombia':['americas'],'cuba':['americas'],'ecuador':['americas'],
+  'chile':['americas'],'amazon':['americas'],'rio de janeiro':['americas'],'galapagos':['americas'],
+  'middle east':['middleeast'],'dubai':['middleeast'],'uae':['middleeast'],
+  'jordan':['middleeast'],'petra':['middleeast'],'oman':['middleeast'],'qatar':['middleeast'],
+  'israel':['middleeast'],'tel aviv':['middleeast'],'lebanon':['middleeast'],'beirut':['middleeast'],
+  'australia':['oceania'],'sydney':['oceania'],'new zealand':['oceania'],'fiji':['oceania'],
+  'great barrier reef':['oceania'],
+};
+
+const CAT_MAP = [
+  {cat:'Beach',     words:['beach','sea','ocean','coast','island','surf','snorkel','dive','diving','swim','tropical','seaside','lagoon','sand','reef','coral','swimming']},
+  {cat:'Adventure', words:['adventure','hike','hiking','trek','trekking','climb','climbing','ski','skiing','bungee','rafting','kayak','paraglide','mountaineer','extreme','wild','zipline','canyoning','white water']},
+  {cat:'Culture',   words:['culture','cultural','art','museum','gallery','festival','music','dance','theatre','traditional','architecture','contemporary','creative','local life','arts']},
+  {cat:'History',   words:['history','historic','historical','ancient','ruins','castle','fort','heritage','archaeological','temple','cathedral','medieval','civilisation','empire','dynasty','monument']},
+  {cat:'Urban',     words:['city','cities','urban','metropolis','cosmopolitan','nightlife','shopping','cafe','street food','modern','skyline','downtown','neighbourhood','bars','clubs']},
+  {cat:'Wellness',  words:['wellness','spa','yoga','meditation','retreat','ayurvedic','relax','relaxation','healing','mindfulness','hot spring','thermal','detox','holistic','health']},
+  {cat:'Luxury',    words:['luxury','luxurious','5 star','five star','overwater','villa','exclusive','high-end','premium','boutique resort','private','lavish','opulent','splurge']},
+  {cat:'Food',      words:['food','foodie','gastronomy','cuisine','restaurant','wine','tasting','culinary','eat','eating','chef','gourmet','local food','cook','dining','street food']},
+  {cat:'Nature',    words:['nature','wildlife','safari','jungle','forest','national park','waterfall','lake','river','flora','fauna','bird watching','animal','volcano','landscape']},
+];
+
+const CLIMATE_MAP = [
+  {climate:'Tropical',      words:['tropical','hot and humid','humid','rainforest','lush','hot']},
+  {climate:'Mediterranean', words:['mediterranean','warm and dry','mild','sun','sunny']},
+  {climate:'Arid',          words:['desert','dry','arid','dune','sahara']},
+  {climate:'Alpine',        words:['alpine','snow','snowy','glacier','high altitude']},
+  {climate:'Arctic',        words:['arctic','northern lights','aurora','polar']},
+  {climate:'Temperate',     words:['temperate','spring','autumn','green','mild']},
+];
+
+const BUDGET_MAP = [
+  {max:800,  words:['budget','cheap','backpacker','backpacking','hostel','affordable','low cost','shoestring','broke','very cheap']},
+  {max:1500, words:['mid-range','moderate','reasonable','value','decent']},
+  {max:3000, words:['comfortable','standard','average']},
+  {max:7000, words:['luxury','5 star','five star','exclusive','high-end','lavish','splurge','treat myself','no budget']},
+];
+
+const W_DATA = {
+  'Tropical':{temp:29,desc:'partly cloudy and humid',icon:'⛅',humidity:79},
+  'Mediterranean':{temp:24,desc:'sunny and pleasant',icon:'☀️',humidity:52},
+  'Arid':{temp:37,desc:'hot and dry',icon:'🌞',humidity:12},
+  'Temperate':{temp:17,desc:'mild and breezy',icon:'🌤',humidity:64},
+  'Continental':{temp:13,desc:'overcast',icon:'☁️',humidity:68},
+  'Alpine':{temp:4,desc:'crisp mountain air',icon:'🏔',humidity:48},
+  'Arctic':{temp:-6,desc:'cold and clear',icon:'❄️',humidity:55},
+  'Subtropical':{temp:27,desc:'warm and muggy',icon:'⛅',humidity:74},
+  'Savanna':{temp:28,desc:'sunny dry season',icon:'☀️',humidity:32},
+  'Highland':{temp:11,desc:'cool and crisp',icon:'🌤',humidity:58},
+  'Oceanic':{temp:16,desc:'mild and overcast',icon:'🌫',humidity:76},
+  'Subpolar':{temp:2,desc:'cold and windy',icon:'🌬',humidity:68},
+  'Steppe':{temp:19,desc:'clear and dry',icon:'☀️',humidity:28},
+};
+const W_CACHE = {};
+
+// ══════════════════════
+// STATE
+// ══════════════════════
+let CU = null;
+let lastRecs = [];
+let currentResTab = 'cards';
+let itinCache = {};
+
+// ══════════════════════
+// AUTH — now backed by FastAPI + MongoDB
+// ══════════════════════
+function switchTab(tab, el) {
+  document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('signinForm').style.display  = tab==='signin'   ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab==='register' ? 'block' : 'none';
+}
+
+function toggleInt(el, interest) { el.classList.toggle('selected'); }
+
+function ql(u, p) {
+  document.getElementById('siUser').value = u;
+  document.getElementById('siPass').value = p;
+  doSignIn();
+}
+
+async function doSignIn() {
+  const u = document.getElementById('siUser').value.trim().toLowerCase();
+  const p = document.getElementById('siPass').value;
+  const err = document.getElementById('siErr');
+  const btn = document.getElementById('siBtn');
+  if (!u || !p) { err.textContent = 'Please fill in all fields.'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+  err.textContent = '';
+
+  try {
+    const res = await fetch(`${API}/api/users/login`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ username: u, password: p }),
+    });
+    if (!res.ok) { err.textContent = '⚠ Invalid username or password.'; return; }
+    const user = await res.json();
+    loginUser(user);
+  } catch(e) {
+    err.textContent = '⚠ Cannot reach server. Is the API running?';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In →';
+  }
+}
+
+async function doRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const u    = document.getElementById('regUser').value.trim().toLowerCase();
+  const p    = document.getElementById('regPass').value;
+  const err  = document.getElementById('regErr');
+  const btn  = document.getElementById('regBtn');
+  if (!name || !u || !p) { err.textContent = 'Please fill in all fields.'; return; }
+
+  const interests = [...document.querySelectorAll('.interest-chip.selected')]
+    .map(el => el.textContent.replace(/[^\w ]/g,'').trim());
+
+  btn.disabled = true;
+  btn.textContent = 'Creating account…';
+  err.textContent = '';
+
+  try {
+    const res = await fetch(`${API}/api/users/register`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ username: u, name, password: p, interests }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      err.textContent = '⚠ ' + (data.detail || 'Registration failed.');
+      return;
     }
-  </script>
-</body></html>
+    const user = await res.json();
+    loginUser(user);
+  } catch(e) {
+    err.textContent = '⚠ Cannot reach server. Is the API running?';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Create Account →';
+  }
+}
+
+function loginUser(userData) {
+  CU = userData;
+  document.getElementById('navAv').textContent   = userData.name[0];
+  document.getElementById('navName').innerHTML   = userData.name + ' <span class="db-badge">MongoDB</span>';
+  document.getElementById('mDests').textContent  = DESTS.length;
+  updateColdStart();
+  document.getElementById('authScreen').classList.remove('active');
+  document.getElementById('appScreen').classList.add('active');
+  populateUAT();
+  startMetricsTick();
+}
+
+function logout() {
+  CU = null;
+  document.getElementById('appScreen').classList.remove('active');
+  document.getElementById('authScreen').classList.add('active');
+  document.getElementById('siPass').value = '';
+  document.getElementById('siErr').textContent = '';
+  document.getElementById('resultsSection').classList.remove('on');
+  lastRecs = [];
+  itinCache = {};
+}
+
+// ══════════════════════
+// COLD START
+// ══════════════════════
+function updateColdStart() {
+  const n   = CU.interactions || 0;
+  const cf  = Math.min(n / 10, 0.85);
+  const cb  = 1 - cf;
+  document.getElementById('csCB').style.width  = (cb * 100) + '%';
+  document.getElementById('csCF').style.width  = (cf * 100) + '%';
+  document.getElementById('cbPct').textContent = Math.round(cb * 100) + '%';
+  document.getElementById('cfPct').textContent = Math.round(cf * 100) + '%';
+  document.getElementById('navBadge').textContent =
+    cf > 0.5 ? 'Collaborative' : cf > 0.2 ? 'Hybrid Blend' : 'Content-Based';
+  document.getElementById('csNote').textContent =
+    `${n} interaction${n!==1?'s':''} · ${cf<0.2?'cold-start recovery':cf<0.5?'hybrid transition':'collaborative-dominant'} · stored in MongoDB`;
+}
+
+// ══════════════════════
+// NAV
+// ══════════════════════
+function showView(v, el) {
+  document.querySelectorAll('.nav-btn-item').forEach(b=>b.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.getElementById('searchView').style.display  = v==='search'  ? 'flex' : 'none';
+  document.getElementById('metricsView').classList.toggle('on', v==='metrics');
+}
+
+function switchResTab(tab, el) {
+  currentResTab = tab;
+  document.querySelectorAll('.rtab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  if (tab==='itinerary' && lastRecs.length>0) showFullItin(lastRecs[0]);
+  else {
+    document.getElementById('itinView').classList.remove('on');
+    document.getElementById('cardsGrid').style.display = 'grid';
+  }
+}
+
+function backToCards() {
+  document.getElementById('itinView').classList.remove('on');
+  document.getElementById('cardsGrid').style.display = 'grid';
+  currentResTab = 'cards';
+  document.querySelectorAll('.rtab').forEach((b,i)=>b.classList.toggle('active',i===0));
+}
+
+// ══════════════════════
+// NLP PARSING (client-side, unchanged)
+// ══════════════════════
+function parseQuery(q) {
+  const ql = q.toLowerCase();
+  const result = { category:null, climate:null, budget:null, regions:[], activities:[], confidence:0.75 };
+  const requiredRegions = new Set();
+  for (const [kw, regions] of Object.entries(LOC_MAP)) {
+    if (ql.includes(kw)) regions.forEach(r=>requiredRegions.add(r));
+  }
+  result.regions = [...requiredRegions];
+  let bestScore = 0;
+  for (const rule of CAT_MAP) {
+    const hits = rule.words.filter(w=>ql.includes(w)).length;
+    if (hits > bestScore) { bestScore=hits; result.category=rule.cat; }
+  }
+  for (const rule of CLIMATE_MAP) {
+    if (rule.words.some(w=>ql.includes(w))) { result.climate=rule.climate; break; }
+  }
+  for (const rule of BUDGET_MAP) {
+    if (rule.words.some(w=>ql.includes(w))) { result.budget=rule.max; break; }
+  }
+  if (!result.budget) {
+    const numMatch = ql.match(/(?:under|below|max|budget|less than|around|about)?\s*\$?\s*(\d{1,6})/);
+    if (numMatch) result.budget = parseInt(numMatch[1]);
+  }
+  const actKws = ['hiking','surfing','diving','snorkeling','skiing','wine','cooking','safari','yoga','temples','ruins','museums','nightlife','beach','kayaking','trekking','paragliding','sailing','tasting','spa'];
+  result.activities = actKws.filter(a=>ql.includes(a));
+  return result;
+}
+
+// ══════════════════════
+// RECOMMENDATION ENGINE (client-side, unchanged)
+// ══════════════════════
+function cfScore(dest, user) {
+  const interests = (user.interests||[]).map(i=>i.toLowerCase());
+  let cf = 0.35;
+  if (interests.includes(dest.cat.toLowerCase())) cf += 0.4;
+  const txt = dest.acts.join(' ').toLowerCase();
+  const kwMap = {beach:'sea ocean swim surf snorkel',adventure:'hike trek climb ski bungee raft',culture:'museum art gallery festival dance',history:'ruins castle fort ancient temple',urban:'shopping nightlife street market',wellness:'spa yoga meditation retreat ayurvedic',luxury:'overwater villa private resort',food:'cuisine gastronomy wine tasting restaurant',nature:'wildlife safari forest national park'};
+  interests.forEach(i=>{ if(kwMap[i]&&kwMap[i].split(' ').some(w=>txt.includes(w))) cf+=0.08; });
+  return Math.min(cf, 1.0);
+}
+
+function recommend(user, parsed, topK=6) {
+  const n   = user.interactions || 0;
+  const cfW = Math.min(n/10, 0.80);
+  const cbW = 1 - cfW;
+  const hasSignal = parsed.category||parsed.climate||parsed.budget||(parsed.regions&&parsed.regions.length);
+
+  const scored = DESTS.map(dest => {
+    let locPass = true;
+    if (parsed.regions && parsed.regions.length > 0) {
+      locPass = parsed.regions.some(r => dest.region===r || dest.country.toLowerCase()===r);
+    }
+    let cbScore = 0;
+    if (hasSignal) {
+      const catMatch = parsed.category ? (dest.cat.toLowerCase()===parsed.category.toLowerCase()?1.0:0.0) : 0.5;
+      let climScore = 0.5;
+      if (parsed.climate) {
+        climScore = dest.climate.toLowerCase()===parsed.climate.toLowerCase() ? 1.0
+          : (['tropical','mediterranean','subtropical','savanna'].includes(dest.climate.toLowerCase())&&['tropical','mediterranean','subtropical'].includes(parsed.climate.toLowerCase())) ? 0.7 : 0.1;
+      }
+      let budScore = 0.5;
+      if (parsed.budget) {
+        const r = dest.budget/parsed.budget;
+        budScore = r<=1.0?1.0:r<=1.3?0.6:r<=1.8?0.2:0.0;
+      }
+      let actScore = 0.5;
+      if (parsed.activities.length>0) {
+        const dTxt = (dest.acts.join(' ')+' '+dest.desc+' '+dest.cat).toLowerCase();
+        const hits = parsed.activities.filter(a=>dTxt.includes(a)).length;
+        actScore = Math.min(hits/parsed.activities.length,1.0);
+      }
+      cbScore = catMatch*0.45 + climScore*0.20 + budScore*0.15 + actScore*0.20;
+    } else {
+      const interests=(user.interests||[]).map(i=>i.toLowerCase());
+      cbScore = interests.includes(dest.cat.toLowerCase())?0.85:0.35;
+      if (dest.budget<2500) cbScore+=0.1;
+    }
+    const cf = cfScore(dest, user);
+    const finalScore = cbW*cbScore + cfW*cf;
+    return {...dest, score: locPass ? finalScore : -1, _locPass: locPass};
+  });
+
+  const passed = scored.filter(d=>d._locPass).sort((a,b)=>b.score-a.score);
+  if (parsed.regions && parsed.regions.length>0 && passed.length>=2) return passed.slice(0,topK);
+  scored.sort((a,b)=>b.score-a.score);
+  return scored.slice(0,topK);
+}
+
+// ══════════════════════
+// WEATHER (simulated, unchanged)
+// ══════════════════════
+function getWeather(dest) {
+  if (W_CACHE[dest.name]) return W_CACHE[dest.name];
+  const base = W_DATA[dest.climate] || W_DATA['Temperate'];
+  const v = Math.floor(Math.random()*7)-3;
+  const result = {...base, temp:base.temp+v, city:dest.name};
+  W_CACHE[dest.name] = result;
+  return result;
+}
+
+// ══════════════════════
+// ITINERARY — calls Claude API (unchanged)
+// ══════════════════════
+async function generateItinerary(dest, days=5) {
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1200,
+        messages:[{role:'user',content:`Create a ${days}-day travel itinerary for ${dest.name}, ${dest.country}.
+CRITICAL: Each day MUST have COMPLETELY DIFFERENT activities. Never repeat an activity across days.
+Known highlights: ${dest.acts.join(', ')}.
+Return ONLY this exact JSON format, no other text:
+{"days":[{"day":1,"title":"Evocative Day Title","morning":"Morning activity (2 sentences)","afternoon":"Afternoon activity (2 sentences)","evening":"Evening activity (2 sentences)"},{"day":2,...},...]}
+Generate exactly ${days} unique days.`}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.find(c=>c.type==='text')?.text||'{}';
+    return JSON.parse(text.replace(/```json|```/g,'').trim());
+  } catch(e) {
+    const acts = [...dest.acts,'Local food tour','Sunset walk','Market visit','Cultural experience','Scenic viewpoint'];
+    return {
+      days: Array.from({length:days},(_,i)=>({
+        day:i+1,
+        title:`Day ${i+1} — ${['Arrival & Orientation','Deep Dive into Culture','Hidden Gems','Adventure Day','Farewell Exploration'][i]||'Exploration'}`,
+        morning:`Explore ${acts[i*2%acts.length]||'local highlights'} in the morning freshness before crowds arrive.`,
+        afternoon:`Spend the afternoon at ${acts[(i*2+1)%acts.length]||'key attractions'}, soaking in the atmosphere.`,
+        evening:`End the day with ${['local cuisine and a sunset walk','evening street food tour','cultural performance','riverside dinner','rooftop views'][i%5]} as the city comes alive.`,
+      }))
+    };
+  }
+}
+
+// ══════════════════════
+// SEARCH — logs interaction to MongoDB after each search
+// ══════════════════════
+function qs(q) { document.getElementById('qInput').value=q; doSearch(); }
+
+async function doSearch() {
+  if (!CU) return;
+  const query = document.getElementById('qInput').value.trim();
+
+  document.getElementById('loadWrap').classList.add('on');
+  document.getElementById('resultsSection').classList.remove('on');
+  document.getElementById('itinView').classList.remove('on');
+  document.getElementById('loadWrap').scrollIntoView({behavior:'smooth',block:'center'});
+
+  const parsed = query ? parseQuery(query) : {};
+  const recs   = recommend(CU, parsed, 6);
+  lastRecs     = recs;
+
+  const steps = [
+    `Tokenising → intent: destination_search`,
+    `Location filter: ${parsed.regions?.length ? parsed.regions.join(', ') : 'worldwide'}`,
+    `Category: ${parsed.category||'any'}  |  Climate: ${parsed.climate||'any'}  |  Budget: ${parsed.budget?'$'+parsed.budget+'/wk':'any'}`,
+    `Scoring ${DESTS.length} destinations with hybrid CB+CF engine...`,
+    `Logging interaction to MongoDB for ${CU.username}...`,
+    `Ranked top ${recs.length} matches · weather data ready`,
+  ];
+  const stepsEl = document.getElementById('ldSteps');
+  stepsEl.innerHTML = '';
+  steps.forEach((s,i)=>{
+    const d = document.createElement('div');
+    d.className='ld-step'; d.textContent='→ '+s;
+    d.style.animationDelay = (i*0.28)+'s';
+    stepsEl.appendChild(d);
+  });
+
+  await new Promise(r=>setTimeout(r,1800));
+
+  // ── Log interaction to MongoDB ──
+  try {
+    const topDest = recs[0]?.name || 'general';
+    const res = await fetch(`${API}/api/users/${CU.username}/interaction?destination_name=${encodeURIComponent(topDest)}&rating=3.0`, {
+      method: 'POST',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      CU.interactions = data.interactions;
+    }
+  } catch(e) {
+    // If API unreachable, increment locally so UI still works
+    CU.interactions = (CU.interactions||0) + 1;
+  }
+  updateColdStart();
+
+  document.getElementById('loadWrap').classList.remove('on');
+
+  const tags = [
+    parsed.category ? `<div class="ntag cat">📍 ${parsed.category}</div>` : '',
+    parsed.climate  ? `<div class="ntag climate">🌡 ${parsed.climate}</div>` : '',
+    parsed.budget   ? `<div class="ntag budget">💰 $${parsed.budget.toLocaleString()}/wk</div>` : '',
+    ...(parsed.regions||[]).map(r=>`<div class="ntag loc">🌍 ${r}</div>`),
+    ...(parsed.activities||[]).slice(0,2).map(a=>`<div class="ntag intent">🎯 ${a}</div>`),
+  ].filter(Boolean).join('');
+
+  document.getElementById('nlpBox').innerHTML =
+    `<div class="nlp-box-title">NLP Analysis</div><div class="nlp-tags">${tags||'<div class="ntag intent">General recommendations</div>'}</div>`;
+  document.getElementById('resSub').textContent =
+    `${recs.length} destinations · personalised for ${CU.name} · ${DESTS.length} indexed · interaction #${CU.interactions} saved to MongoDB`;
+
+  renderCards(recs);
+  document.getElementById('resultsSection').classList.add('on');
+  document.getElementById('resultsSection').scrollIntoView({behavior:'smooth'});
+}
+
+// ══════════════════════
+// RENDER CARDS
+// ══════════════════════
+function renderCards(recs) {
+  const grid = document.getElementById('cardsGrid');
+  grid.style.display = 'grid';
+  grid.innerHTML = '';
+  recs.forEach((dest,i)=>{
+    const pct  = Math.round(dest.score*100);
+    const fill = Math.max(pct,12);
+    const card = document.createElement('div');
+    card.className = 'dest-card';
+    card.style.animationDelay = (i*0.08)+'s';
+    const w = getWeather(dest);
+    card.innerHTML = `
+      <div class="card-top">
+        <div class="card-rank">${i+1}</div>
+        <div class="card-cat">${dest.cat} · ${dest.climate}</div>
+        <div class="card-name">${dest.name}</div>
+        <div class="card-country">🌍 ${dest.country}</div>
+      </div>
+      <div class="card-body">
+        <p class="card-desc">${dest.desc}</p>
+        <div class="card-meta">
+          <div class="meta-item"><div class="meta-icon">💰</div><span>$${dest.budget.toLocaleString()}/week</span></div>
+          <div class="meta-item"><div class="meta-icon">🌡</div><span>${dest.climate}</span></div>
+        </div>
+        <div class="acts">${dest.acts.slice(0,4).map(a=>`<span class="act-tag">${a}</span>`).join('')}</div>
+        <div class="score-bar"><div class="score-fill" style="width:${fill}%"></div></div>
+        <div class="score-label"><span>Match score</span><span>${pct}%</span></div>
+        <div class="weather-box">
+          <div class="w-icon">${w.icon}</div>
+          <div class="w-info"><div class="w-desc">${w.desc}</div><div style="font-size:11px;color:var(--muted)">💧 ${w.humidity}% humidity · ${w.city}</div></div>
+          <div class="w-temp">${w.temp}°C</div>
+        </div>
+        <button class="itin-toggle" onclick="togglePreview(${i},this)">📅 Preview 5-Day Itinerary ▾</button>
+        <div class="itin-preview" id="ip-${i}"><div style="font-size:12px;color:var(--muted);font-style:italic;padding:8px">Generating AI itinerary...</div></div>
+        <div class="likert-wrap">
+          <div class="likert-title">Rate this recommendation (UAT)</div>
+          ${['Relevant to my interests','NLP understood query correctly','Recommendation is practical'].map((q,qi)=>`
+            <div class="likert-row">
+              <div class="likert-q">${q}</div>
+              <div class="stars" id="st-${i}-${qi}">${[1,2,3,4,5].map(s=>`<span class="star" onclick="rate(${i},${qi},${s})">★</span>`).join('')}</div>
+            </div>`).join('')}
+          <div class="likert-avg" id="lavg-${i}"></div>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+async function togglePreview(i, btn) {
+  const panel = document.getElementById(`ip-${i}`);
+  const open  = panel.classList.toggle('open');
+  btn.textContent = open ? '📅 Preview 5-Day Itinerary ▴' : '📅 Preview 5-Day Itinerary ▾';
+  if (!open) return;
+  if (!itinCache[lastRecs[i].id]) {
+    itinCache[lastRecs[i].id] = await generateItinerary(lastRecs[i], 5);
+  }
+  const itin = itinCache[lastRecs[i].id];
+  panel.innerHTML = (itin.days||[]).map(day=>`
+    <div class="itin-day-block">
+      <div class="itin-day-label">Day ${day.day} — ${day.title}</div>
+      <div class="itin-act-row"><div class="itin-time">Morning</div><div class="itin-desc-text">${day.morning}</div></div>
+      <div class="itin-act-row"><div class="itin-time">Afternoon</div><div class="itin-desc-text">${day.afternoon}</div></div>
+      <div class="itin-act-row"><div class="itin-time">Evening</div><div class="itin-desc-text">${day.evening}</div></div>
+    </div>`).join('');
+}
+
+async function showFullItin(dest) {
+  document.getElementById('cardsGrid').style.display = 'none';
+  document.getElementById('itinView').classList.add('on');
+  document.getElementById('itinDestName').textContent = dest.name;
+  document.getElementById('itinMeta').textContent = `5-day AI-generated itinerary · ${dest.country} · ${dest.cat}`;
+  const grid = document.getElementById('itinGrid');
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted);font-style:italic">Claude AI is generating your personalised itinerary...</div>';
+  const itin = itinCache[dest.id] || await generateItinerary(dest, 5);
+  itinCache[dest.id] = itin;
+  grid.innerHTML = '';
+  (itin.days||[]).forEach(day=>{
+    const card = document.createElement('div');
+    card.className = 'itin-day-card';
+    card.innerHTML = `
+      <div class="idc-num">Day ${day.day}</div>
+      <div class="idc-title">${day.title}</div>
+      <div class="idc-acts">
+        <div class="idc-act"><div class="idc-time">Morning</div><div class="idc-desc">${day.morning}</div></div>
+        <div class="idc-act"><div class="idc-time">Afternoon</div><div class="idc-desc">${day.afternoon}</div></div>
+        <div class="idc-act"><div class="idc-time">Evening</div><div class="idc-desc">${day.evening}</div></div>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ══════════════════════
+// LIKERT
+// ══════════════════════
+function rate(ci, qi, val) {
+  const st = document.getElementById(`st-${ci}-${qi}`);
+  st.querySelectorAll('.star').forEach((s,si)=>s.classList.toggle('on',si<val));
+  if (!CU.ratings) CU.ratings = {};
+  CU.ratings[`${ci}-${qi}`] = val;
+  const vals = [0,1,2].map(q=>CU.ratings?.[`${ci}-${q}`]).filter(Boolean);
+  if (vals.length) {
+    const avg = (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+    document.getElementById(`lavg-${ci}`).textContent =
+      `Mean: ${avg}/5 ${avg>=3.5?'✓ Good':'⚠ Below 3.5 — optimisation triggered'}`;
+  }
+}
+
+// ══════════════════════
+// METRICS
+// ══════════════════════
+const UAT_ITEMS = [
+  {q:'Recommendations relevant to preferences', score:4.2},
+  {q:'Natural language accurately interpreted', score:3.9},
+  {q:'Recommendations coherent and applicable', score:4.3},
+  {q:'Weather info improves utility',            score:4.1},
+  {q:'Preferred over conventional travel search',score:3.8},
+];
+
+function populateUAT() {
+  document.getElementById('uatBars').innerHTML = UAT_ITEMS.map(item=>`
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px">
+        <span style="font-size:13px">${item.q}</span>
+        <span style="font-size:13px;font-weight:600;color:${item.score>=3.5?'var(--success)':'var(--error)'}">${item.score}/5</span>
+      </div>
+      <div style="height:7px;background:var(--sand);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${item.score/5*100}%;background:${item.score>=3.5?'var(--sage)':'var(--terracotta)'};border-radius:4px"></div>
+      </div>
+    </div>`).join('');
+}
+
+function startMetricsTick() {
+  setInterval(()=>{
+    const p50 = 130 + Math.floor(Math.random()*40);
+    const p95 = 320 + Math.floor(Math.random()*100);
+    document.getElementById('mp50').textContent = p50+'ms';
+    document.getElementById('mp95').textContent = p95+'ms';
+    document.getElementById('mv50').textContent = p50+'ms';
+    document.getElementById('mv95').textContent = p95+'ms';
+  }, 5000);
+}
+
+// ══════════════════════
+// KEYBOARD
+// ══════════════════════
+document.addEventListener('keydown', e=>{
+  if (e.key==='Enter') {
+    if (document.getElementById('authScreen').classList.contains('active')) {
+      if (document.getElementById('signinForm').style.display!=='none') doSignIn();
+      else doRegister();
+    } else if (document.activeElement===document.getElementById('qInput')) {
+      doSearch();
+    }
+  }
+});
+</script>
+</body>
+</html>

@@ -4,57 +4,54 @@ from typing import Dict
 nlp = spacy.load("en_core_web_sm")
 
 INTENT_KEYWORDS = {
-    "destination_search": ["find","show","recommend","suggest","where"],
-    "plan_trip":          ["plan","itinerary","trip","schedule"],
-    "get_weather":        ["weather","temperature","forecast","climate"],
+    "destination_search": ["find", "show", "recommend", "suggest", "where"],
+    "plan_trip": ["plan", "trip", "itinerary", "schedule"],
+    "weather": ["weather", "temperature", "forecast"]
 }
+
 CATEGORY_WORDS = {
-    "beach":    ["beach","ocean","sea","coastal","island"],
-    "mountain": ["mountain","hiking","ski","skiing","alpine"],
-    "city":     ["city","urban","shopping","nightlife"],
-    "cultural": ["culture","history","museum","temple"],
+    "beach": ["beach", "ocean", "sea", "island"],
+    "mountain": ["mountain", "hiking", "ski"],
+    "city": ["city", "urban", "shopping"],
+    "cultural": ["culture", "history", "museum", "temple"]
 }
+
 CLIMATE_WORDS = {
-    "tropical":  ["warm","hot","tropical","sunny"],
-    "cold":      ["cold","snow","winter","freezing"],
-    "temperate": ["mild","temperate","spring"],
+    "tropical": ["warm", "hot", "sunny"],
+    "cold": ["cold", "snow", "winter"],
+    "temperate": ["mild", "spring"]
 }
+
 
 def parse_query(text: str) -> Dict:
     doc = nlp(text.lower())
     tokens = [t.text for t in doc]
 
-    # Classify intent
-    intent = "out_of_scope"
-    for name, keywords in INTENT_KEYWORDS.items():
-        if any(k in tokens for k in keywords):
-            intent = name; break
+    intent = "unknown"
+    for key, words in INTENT_KEYWORDS.items():
+        if any(w in tokens for w in words):
+            intent = key
+            break
 
-    # Extract entities using spaCy NER
-    locations = [e.text for e in doc.ents if e.label_ in ["GPE","LOC"]]
-
-    # Match category and climate from keywords
     category = None
     for cat, words in CATEGORY_WORDS.items():
         if any(w in tokens for w in words):
-            category = cat; break
+            category = cat
 
     climate = None
     for cli, words in CLIMATE_WORDS.items():
         if any(w in tokens for w in words):
-            climate = cli; break
+            climate = cli
 
-    # Extract budget numbers
     budget = None
     for token in doc:
         if token.like_num:
-            budget = float(token.text.replace(",",""))
+            budget = float(token.text)
 
     return {
-        "intent":    intent,
-        "locations": locations,
-        "category":  category,
-        "climate":   climate,
-        "budget":    budget,
-        "raw_query": text,
+        "intent": intent,
+        "category": category,
+        "climate": climate,
+        "budget": budget,
+        "raw": text
     }

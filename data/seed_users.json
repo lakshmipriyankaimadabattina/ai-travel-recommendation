@@ -1,6 +1,7 @@
 [
   {
     "username": "alice",
+    "password": "345",
     "preferences": {
       "categories": ["beach", "nature"],
       "climates": ["tropical", "warm"],
